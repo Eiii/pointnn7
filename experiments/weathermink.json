@@ -1,0 +1,31 @@
+{
+  "experiment_path": "./output/weather",
+  "problem_type": "Weather",
+  "problem_args": {
+    "data_path": "data/weather",
+    "voxel_res": 6000,
+    "HACK_SNIP": 50
+  },
+  "epochs": 6,
+  "entries": [
+    {
+      "name": "SeFT",
+      "net": "WeatherMink",
+      "train_args": {
+        "batch_size": 8,
+        "report_every": 0.01,
+        "valid_every": 0.1,
+        "lr": 0.00001,
+        "period": 2,
+        "optim": "sgd",
+        "disable_valid": true
+      },
+      "net_args": {
+        "latent_sizes": [32, 64, 64],
+        "kernel_size": 21
+      },
+      "repeat": 1
+    }
+  ]
+}
+  

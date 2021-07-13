@@ -1,0 +1,37 @@
+{
+  "experiment_path": "./output/sc2demo",
+  "problem_type": "StarcraftScene",
+  "problem_args": {
+    "data_path": "data/sc2scene",
+    "num_pred": 4,
+    "max_hist": 5
+  },
+  "epochs": 0.1,
+  "entries": [
+    {
+      "name": "SeFT",
+      "net": "SC2SeFT",
+      "train_args": {
+        "batch_size": 3,
+        "lr": 0.003,
+        "sched": "none",
+        "report_every": 0.01,
+        "valid_every": 0.05,
+        "period": 10
+      },
+      "net_args": {
+        "neighborhood_sizes": [16, 32, 32],
+        "latent_sizes": [32, 64, 64],
+        "target_size": 64,
+        "combine_hidden": [64, 64],
+        "hidden": [256, 256, 256],
+        "decode_hidden": [64, 64, 64],
+        "neighbors": 8,
+        "timesteps": 4,
+        "self_attention": true
+      },
+      "repeat": 1
+    }
+  ]
+}
+  

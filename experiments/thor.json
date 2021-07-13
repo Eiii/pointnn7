@@ -1,0 +1,26 @@
+{
+  "experiment_path": "./output/thordemo",
+  "problem_type": "Thor",
+  "problem_args": {
+    "data_path": "./data/thor/scenes",
+    "downsample": 1024
+  },
+  "epochs": 1,
+  "entries": [
+    {
+      "name": "TestPeriod",
+      "net": "ThorTest",
+      "net_args": {
+        "time_encode": "period",
+        "ignore_scene": true
+      },
+      "train_args": {
+        "batch_size": 1,
+        "lr": 0.001,
+        "report_freq": 1000
+      },
+      "repeat": 1
+    }
+  ]
+}
+  
