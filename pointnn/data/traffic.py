@@ -5,6 +5,7 @@ from pathlib import Path
 from collections import namedtuple
 from itertools import product
 from functools import lru_cache, partial
+from scipy import linalg
 
 import numpy as np
 import pyproj
@@ -13,6 +14,7 @@ import csv
 import math
 
 from .common import pad_tensors
+from ..nets.spectral import graph_laplacian, comb_laplacian, calc_spec
 
 data_base = Path('data/traffic')
 METR_base = data_base / 'METR-LA'
@@ -30,10 +32,15 @@ def load_pems():
 METREntry = namedtuple('METREntry', ('hist_rows', 'target_rows', 'center'))
 
 class METRDataset:
-    def __init__(self, base, date_fn, normalize):
+    def __init__(self, base, date_fn, normalize, spectral, eig_dims=None):
         self.normalize = normalize
         self._load_metr(Path(base))
         self._load_adj(Path(base))
+        if spectral:
+            lap = comb_laplacian(self.sensor_connected)
+            self.eig = calc_spec(lap, eig_dims)
+        else:
+            self.eig = None
         self._calc_entries(date_fn)
 
     def __getitem__(self, idx):
@@ -158,7 +165,8 @@ class METRDataset:
                 'tgt_id': tgt_idx_ids,
                 'tgt_pos': tgt_pos,
                 'tgt_data': tgt_data,
-                'norm_info': self.norm_info
+                'norm_info': self.norm_info,
+                'eig': self.eig
                }
 
     def _period_encode(self, t):
@@ -214,7 +222,7 @@ class METRDataset:
 
     @staticmethod
     def _validate_entry(e):
-        min_hist = 5
+        min_hist = 12
         min_tgt = 1
         valid_hist = len(e.hist_rows) >= min_hist
         valid_tgt = len(e.target_rows) >= min_tgt
@@ -252,6 +260,7 @@ def collate(items):
     tgt_data = pad_tensors(get_tensors('tgt_data'))
     tgt_mask = pad_tensors([torch.ones(len(i['tgt_t']), dtype=torch.bool) for i in items])
     norm_info = torch.stack(get_tensors('norm_info'))
+    eig = items[0]['eig']
     return {'hist_t': hist_t,
             'hist_id': hist_id,
             'hist_pos': hist_pos,
@@ -265,16 +274,18 @@ def collate(items):
             'tgt_pos': tgt_pos,
             'tgt_data': tgt_data,
             'tgt_mask': tgt_mask,
-            'norm_info': norm_info
+            'norm_info': norm_info,
+            'eig': eig
             }
 
 def main():
     from torch.utils.data import DataLoader
     from itertools import islice
     fn = lambda date: date.week % 2 == 0
-    ds = METRDataset('data/traffic/METR-LA', fn, True)
+    ds = METRDataset('data/traffic/METR-LA', fn, True, True)
     loader = DataLoader(ds, batch_size=5, collate_fn=collate)
     for x in islice(loader, 5):
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         print('x')
 
 if __name__ == '__main__':

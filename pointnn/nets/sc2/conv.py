@@ -115,11 +115,11 @@ class SC2SeFT(_SC2Common):
     def encode(self, data, ids, ts, mask):
         pf = parse_frame(data)
         # Add time to unit positions
-        pos_t = torch.cat((pf['pos'], ts.unsqueeze(-1)), dim=-1)
+        pos = pf['pos']
         # Initial setup to execute network
         # Spatial convolution operates on XYZ+T of units
-        space_points = pos_t
-        space_dist_fn = partial(dists.space, mask)
+        space_points = pos
+        space_dist_fn = partial(dists.space, mask, ts)
         # Time convolution
         time_points = ts
         time_dist_fn = partial(dists.time, mask, ids, self.time_encoder.encode)
@@ -165,16 +165,29 @@ class SC2TPC(_SC2Common):
         feat_size = 16
         pos_dim = 2
         self.time_encoder = encodings.PeriodEncoding(8, 10)
+        self.make_tpc(feat_size, weight_hidden, c_mid, final_hidden,
+                      latent_sizes, neighborhood_sizes, neighbors,
+                      timesteps, combine_hidden, target_size, pos_dim,
+                      self.time_encoder)
+        self.make_decoders(target_size, decode_hidden)
+
+    def make_tpc(self, feat_size, weight_hidden, c_mid, final_hidden,
+                 latent_sizes, neighborhood_sizes, neighbors,
+                 timesteps, combine_hidden, target_size, pos_dim,
+                 time_encoder):
         self.tpc = tpc.TemporalPointConv(feat_size, weight_hidden, c_mid, final_hidden,
                                          latent_sizes, neighborhood_sizes, neighbors,
                                          timesteps, combine_hidden, target_size, pos_dim,
-                                         self.time_encoder)
-        self.make_decoders(target_size, decode_hidden)
+                                         time_encoder)
+
+    def run_tpc(self, data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn):
+        out = self.tpc(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
+        return out
 
     def encode_targets(self, data, ids, ts, mask, pred_ids, pred_ts):
         pf = parse_frame(data)
-        pos_t = torch.cat((pf['pos'], ts.unsqueeze(-1)), dim=-1)
-        space_dist_fn = partial(dists.space, mask)
+        pos = pf['pos']
+        space_dist_fn = partial(dists.space, mask, ts)
         time_dist_fn = partial(dists.time, mask, ids, self.time_encoder.encode)
         # Target info
         expand_pred_ts = pred_ts.unsqueeze(-1)
@@ -183,9 +196,62 @@ class SC2TPC(_SC2Common):
         flat_pred_ts = expand_pred_ts.reshape(expand_pred_ts.size(0), -1)
         flat_pred_ids = expand_pred_ids.reshape(expand_pred_ids.size(0), -1)
         target_dist_fn = partial(dists.target, mask, flat_pred_ids, ids, self.time_encoder.encode)
-        out = self.tpc(data, ids, pos_t, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
+        out = self.run_tpc(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
         target_feats = out.view(expand_pred_ts.size()+(out.size(-1),))
         return target_feats
+
+from .. import spectral
+class SC2Spectral(SC2TPC):
+    def __init__(self,
+                 neighborhood_sizes = [2**4, 2**5, 2**5],
+                 latent_sizes = [2**5, 2**6, 2**6],
+                 target_size = 2**6,
+                 combine_hidden = [2**6, 2**6],
+                 weight_hidden = [2**5, 2**5],
+                 c_mid = 2**5,
+                 final_hidden = [2**6, 2**6],
+                 decode_hidden = [2**6, 2**6, 2**6],
+                 neighbors=8, timesteps=8, neighbor_attn=0, eig_dims=25, lap_type='comb'):
+        self.eig_dims = eig_dims
+        self.lap_type = lap_type
+        super().__init__(neighborhood_sizes, latent_sizes, target_size,
+                         combine_hidden, weight_hidden, c_mid, final_hidden,
+                         decode_hidden, neighbors, timesteps, neighbor_attn)
+
+    def run_tpc(self, data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn):
+        eig = None
+        out = self.tpc(data, ids, pos, ts, flat_pred_ts, eig,
+                       space_dist_fn, time_dist_fn, target_dist_fn)
+        return out
+
+    def make_tpc(self, feat_size, weight_hidden, c_mid, final_hidden,
+                 latent_sizes, neighborhood_sizes, neighbors,
+                 timesteps, combine_hidden, target_size, pos_dim,
+                 time_encoder):
+        self.tpc = tpc.TemporalSpectral(feat_size, weight_hidden, c_mid, final_hidden,
+                                        latent_sizes, neighborhood_sizes, neighbors,
+                                        timesteps, combine_hidden, target_size, pos_dim,
+                                        time_encoder, self.eig_dims, self.lap_type)
+
+class SC2Blank(SC2TPC):
+    def make_tpc(self, feat_size, weight_hidden, c_mid, final_hidden,
+                 latent_sizes, neighborhood_sizes, neighbors,
+                 timesteps, combine_hidden, target_size, pos_dim,
+                 time_encoder):
+        self.tpc = tpc.TemporalBlank(feat_size, weight_hidden, c_mid, final_hidden,
+                                     latent_sizes, neighborhood_sizes, neighbors,
+                                     timesteps, combine_hidden, target_size, pos_dim,
+                                     time_encoder)
+
+class SC2Zero(SC2TPC):
+    def make_tpc(self, feat_size, weight_hidden, c_mid, final_hidden,
+                 latent_sizes, neighborhood_sizes, neighbors,
+                 timesteps, combine_hidden, target_size, pos_dim,
+                 time_encoder):
+        self.tpc = tpc.TemporalZero(feat_size, weight_hidden, c_mid, final_hidden,
+                                    latent_sizes, neighborhood_sizes, neighbors,
+                                    timesteps, combine_hidden, target_size, pos_dim,
+                                    time_encoder)
 
 class SC2GC(_SC2Common):
     def __init__(self,
@@ -206,8 +272,8 @@ class SC2GC(_SC2Common):
 
     def encode_targets(self, data, ids, ts, mask, pred_ids, pred_ts):
         pf = parse_frame(data)
-        pos_t = torch.cat((pf['pos'], ts.unsqueeze(-1)), dim=-1)
-        space_dist_fn = partial(dists.space, mask)
+        pos = pf['pos']
+        space_dist_fn = partial(dists.space, mask, ts)
         time_dist_fn = partial(dists.time, mask, ids, self.time_encoder.encode)
         # Target info
         expand_pred_ts = pred_ts.unsqueeze(-1)
@@ -216,7 +282,7 @@ class SC2GC(_SC2Common):
         flat_pred_ts = expand_pred_ts.reshape(expand_pred_ts.size(0), -1)
         flat_pred_ids = expand_pred_ids.reshape(expand_pred_ids.size(0), -1)
         target_dist_fn = partial(dists.target, mask, flat_pred_ids, ids, self.time_encoder.encode)
-        out = self.tgc(data, ids, pos_t, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
+        out = self.tgc(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
         target_feats = out.view(expand_pred_ts.size()+(out.size(-1),))
         return target_feats
 
@@ -288,11 +354,11 @@ class SC2TPCAttn(_SC2Common):
     def encode(self, data, ids, ts, mask):
         pf = parse_frame(data)
         # Add time to unit positions
-        pos_t = torch.cat((pf['pos'], ts.unsqueeze(-1)), dim=-1)
+        pos = pf['pos']
         # Initial setup to execute network
         # Spatial convolution operates on XYZ+T of units
-        space_points = pos_t
-        space_dist_fn = partial(dists.space, mask)
+        space_points = pos
+        space_dist_fn = partial(dists.space, mask, ts)
         # Time convolution
         time_points = ts
         time_dist_fn = partial(dists.time, mask, ids, self.time_encoder.encode)

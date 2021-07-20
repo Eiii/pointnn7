@@ -171,3 +171,261 @@ class TemporalGraphConv(nn.Module):
     def encode_queries(self, data, ts, query_ts, target_dist_fn, target_dist_data):
         target_feats = self.target_conv(query_ts, ts, data, target_dist_fn, target_dist_data)
         return target_feats
+
+from . import spectral
+class TemporalSpectral(nn.Module):
+    def __init__(self,
+                 feat_size,
+                 weight_hidden,
+                 c_mid,
+                 final_hidden,
+                 latent_sizes,
+                 neighborhood_sizes,
+                 neighbors,
+                 timesteps,
+                 combine_hidden,
+                 target_size,
+                 pos_dim,
+                 time_encoder,
+                 eig_dims,
+                 lap_type
+                 ):
+        super().__init__()
+        self.pos_dim = pos_dim
+        self.time_encoder = time_encoder
+        self.eig_dims = eig_dims
+        self.lap_type = lap_type
+        self._make_modules(feat_size, weight_hidden, c_mid, final_hidden,
+                           latent_sizes, neighborhood_sizes,
+                           neighbors, timesteps, combine_hidden, target_size)
+
+    def _make_modules(self, feat_size, weight_hidden, c_mid, final_hidden,
+                      latent_sizes, neighborhood_sizes, neighbors, timesteps,
+                      combine_hidden, target_size):
+        self.space_convs = nn.ModuleList()
+        self.time_convs = nn.ModuleList()
+        self.combine_mlps = nn.ModuleList()
+        in_size = feat_size
+        neighbor_attn = 0
+        default_spec_args = {'eig_dims': self.eig_dims, 'hidden': final_hidden,
+                             'pos_size': self.pos_dim,
+                             'lap_type': self.lap_type}
+        default_args = {'weight_hidden': weight_hidden, 'c_mid': c_mid,
+                        'final_hidden': final_hidden,
+                        'attn_heads': neighbor_attn}
+        assert len(latent_sizes) == len(neighborhood_sizes)
+        for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
+            # Space neighborhood
+            spec_args = default_spec_args.copy()
+            spec_args.update({'in_size': in_size, 'out_size': n_sz})
+            spec = spectral.SpectralStack(**spec_args)
+            self.space_convs.append(spec)
+            # Time neighborhood
+            args = default_args.copy()
+            args.update({'neighbors': timesteps, 'c_in': in_size+n_sz,
+                         'c_out': n_sz, 'dim': self.time_encoder.out_dim})
+            pc = pointconv.PointConv(**args)
+            self.time_convs.append(pc)
+            # MLP to next layer
+            mlp_args = {'in_size': in_size+2*n_sz, 'out_size': ls,
+                        'hidden_sizes': combine_hidden, 'reduction': 'none'}
+            pn = SetTransform(**mlp_args)
+            self.combine_mlps.append(pn)
+            in_size = ls
+        # Target conv
+        args = default_args.copy()
+        args = {'weight_hidden': [x*2 for x in weight_hidden],
+                'c_mid': c_mid*2,
+                'final_hidden': [x*2 for x in final_hidden],
+                'neighbors': timesteps, 'c_in': ls, 'c_out': target_size,
+                'dim': self.time_encoder.out_dim}
+        self.target_conv = pointconv.PointConv(**args)
+
+    def forward(self, data, ids, space_pts, time_pts, query_pts, eig,
+                space_dist_fn=None, time_dist_fn=None, target_dist_fn=None,
+                space_dist_data=None, time_dist_data=None, target_dist_data=None):
+        out_data = self.encode_input(data, ids, space_pts, time_pts, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data, eig)
+        query_feats = self.encode_queries(out_data, time_pts, query_pts, target_dist_fn, target_dist_data)
+        return query_feats
+
+    def encode_input(self, data, ids, space_points, time_points, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data, eig):
+        space_in = data
+        for space, time, comb in \
+                zip(self.space_convs, self.time_convs, self.combine_mlps):
+            # Calculate spatial convolution
+            space_nei = space(space_in, space_points, time_points, ids, space_dist_fn, space_dist_data, eig)
+            # Combine input+output feats of space conv as input for time conv
+            time_in = torch.cat([space_in, space_nei], dim=2)
+            # Run time convolution
+            time_nei = time(time_points, time_points, time_in, time_dist_fn, time_dist_data)
+            combined = torch.cat([space_in, space_nei, time_nei], dim=2)
+            # Construct input to next space conv by appending time conv
+            # output
+            space_in = comb(combined)
+        return space_in
+
+    def encode_queries(self, data, ts, query_ts, target_dist_fn, target_dist_data):
+        target_feats = self.target_conv(query_ts, ts, data, target_dist_fn, target_dist_data)
+        return target_feats
+
+class TemporalBlank(nn.Module):
+    def __init__(self,
+                 feat_size,
+                 weight_hidden,
+                 c_mid,
+                 final_hidden,
+                 latent_sizes,
+                 neighborhood_sizes,
+                 neighbors,
+                 timesteps,
+                 combine_hidden,
+                 target_size,
+                 pos_dim,
+                 time_encoder
+                 ):
+        super().__init__()
+        self.pos_dim = pos_dim
+        self.time_encoder = time_encoder
+        self._make_modules(feat_size, weight_hidden, c_mid, final_hidden,
+                           latent_sizes, neighborhood_sizes,
+                           neighbors, timesteps, combine_hidden, target_size)
+
+    def _make_modules(self, feat_size, weight_hidden, c_mid, final_hidden,
+                      latent_sizes, neighborhood_sizes, neighbors, timesteps,
+                      combine_hidden, target_size):
+        self.n_sizes = list()
+        self.space_convs = nn.ModuleList()
+        self.time_convs = nn.ModuleList()
+        self.combine_mlps = nn.ModuleList()
+        in_size = feat_size
+        neighbor_attn = 0
+        default_args = {'weight_hidden': weight_hidden, 'c_mid': c_mid,
+                        'final_hidden': final_hidden, 'attn_heads': neighbor_attn}
+        assert len(latent_sizes) == len(neighborhood_sizes)
+        for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
+            # Space neighborhood
+            self.n_sizes.append(n_sz)
+            # Time neighborhood
+            args = default_args.copy()
+            args.update({'neighbors': timesteps, 'c_in': in_size+n_sz,
+                         'c_out': n_sz, 'dim': self.time_encoder.out_dim})
+            pc = pointconv.PointConv(**args)
+            self.time_convs.append(pc)
+            # MLP to next layer
+            mlp_args = {'in_size': in_size+2*n_sz, 'out_size': ls,
+                        'hidden_sizes': combine_hidden, 'reduction': 'none'}
+            pn = SetTransform(**mlp_args)
+            self.combine_mlps.append(pn)
+            in_size = ls
+        # Target conv
+        args = default_args.copy()
+        args = {'weight_hidden': [x*2 for x in weight_hidden],
+                'c_mid': c_mid*2,
+                'final_hidden': [x*2 for x in final_hidden],
+                'neighbors': timesteps, 'c_in': ls, 'c_out': target_size,
+                'dim': self.time_encoder.out_dim}
+        self.target_conv = pointconv.PointConv(**args)
+
+    def forward(self, data, ids, space_pts, time_pts, query_pts,
+                space_dist_fn=None, time_dist_fn=None, target_dist_fn=None,
+                space_dist_data=None, time_dist_data=None, target_dist_data=None):
+        out_data = self.encode_input(data, ids, space_pts, time_pts, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data)
+        query_feats = self.encode_queries(out_data, time_pts, query_pts, target_dist_fn, target_dist_data)
+        return query_feats
+
+    def encode_input(self, data, ids, space_points, time_points, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data):
+        space_in = data
+        for n_size, time, comb in \
+                zip(self.n_sizes, self.time_convs, self.combine_mlps):
+            # Calculate spatial convolution
+            sz = [*space_in.size()[:2], n_size]
+            space_nei = torch.zeros(sz, device=space_in.device)
+            # Combine input+output feats of space conv as input for time conv
+            time_in = torch.cat([space_in, space_nei], dim=2)
+            # Run time convolution
+            time_nei = time(time_points, time_points, time_in, time_dist_fn, time_dist_data)
+            combined = torch.cat([space_in, space_nei, time_nei], dim=2)
+            # Construct input to next space conv by appending time conv
+            # output
+            space_in = comb(combined)
+        return space_in
+
+    def encode_queries(self, data, ts, query_ts, target_dist_fn, target_dist_data):
+        target_feats = self.target_conv(query_ts, ts, data, target_dist_fn, target_dist_data)
+        return target_feats
+
+class TemporalZero(nn.Module):
+    def __init__(self,
+                 feat_size,
+                 weight_hidden,
+                 c_mid,
+                 final_hidden,
+                 latent_sizes,
+                 neighborhood_sizes,
+                 neighbors,
+                 timesteps,
+                 combine_hidden,
+                 target_size,
+                 pos_dim,
+                 time_encoder
+                 ):
+        super().__init__()
+        self.pos_dim = pos_dim
+        self.time_encoder = time_encoder
+        self._make_modules(feat_size, weight_hidden, c_mid, final_hidden,
+                           latent_sizes, neighborhood_sizes,
+                           neighbors, timesteps, combine_hidden, target_size)
+
+    def _make_modules(self, feat_size, weight_hidden, c_mid, final_hidden,
+                      latent_sizes, neighborhood_sizes, neighbors, timesteps,
+                      combine_hidden, target_size):
+        self.n_sizes = list()
+        self.combine_mlps = nn.ModuleList()
+        in_size = feat_size
+        neighbor_attn = 0
+        default_args = {'weight_hidden': weight_hidden, 'c_mid': c_mid,
+                        'final_hidden': final_hidden, 'attn_heads': neighbor_attn}
+        assert len(latent_sizes) == len(neighborhood_sizes)
+        for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
+            # Space neighborhood
+            self.n_sizes.append(n_sz)
+            # Time neighborhood
+            # MLP to next layer
+            mlp_args = {'in_size': in_size+2*n_sz, 'out_size': ls,
+                        'hidden_sizes': combine_hidden, 'reduction': 'none'}
+            pn = SetTransform(**mlp_args)
+            self.combine_mlps.append(pn)
+            in_size = ls
+        # Target conv
+        args = default_args.copy()
+        args = {'weight_hidden': [x*2 for x in weight_hidden],
+                'c_mid': c_mid*2,
+                'final_hidden': [x*2 for x in final_hidden],
+                'neighbors': timesteps, 'c_in': ls, 'c_out': target_size,
+                'dim': self.time_encoder.out_dim}
+        self.target_conv = pointconv.PointConv(**args)
+
+    def forward(self, data, ids, space_pts, time_pts, query_pts,
+                space_dist_fn=None, time_dist_fn=None, target_dist_fn=None,
+                space_dist_data=None, time_dist_data=None, target_dist_data=None):
+        out_data = self.encode_input(data, ids, space_pts, time_pts, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data)
+        query_feats = self.encode_queries(out_data, time_pts, query_pts, target_dist_fn, target_dist_data)
+        return query_feats
+
+    def encode_input(self, data, ids, space_points, time_points, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data):
+        space_in = data
+        for n_size, comb in \
+                zip(self.n_sizes, self.combine_mlps):
+            # Calculate spatial convolution
+            sz = [*space_in.size()[:2], n_size]
+            space_nei = torch.zeros(sz, device=space_in.device)
+            time_nei = torch.zeros(sz, device=space_in.device)
+            combined = torch.cat([space_in, space_nei, time_nei], dim=2)
+            # Construct input to next space conv by appending time conv
+            # output
+            space_in = comb(combined)
+        return space_in
+
+    def encode_queries(self, data, ts, query_ts, target_dist_fn, target_dist_data):
+        target_feats = self.target_conv(query_ts, ts, data, target_dist_fn, target_dist_data)
+        return target_feats

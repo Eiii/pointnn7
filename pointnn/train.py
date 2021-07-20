@@ -177,10 +177,12 @@ class Trainer:
 
 # TODO: surely this means I'm doing something wrong
 def seq_to_cuda(d):
+    def to_cuda(x):
+        return x.cuda() if x is not None else None
     if isinstance(d, dict):
-        return {k:v.cuda() for k,v in d.items()}
+        return {k:to_cuda(v) for k,v in d.items()}
     elif isinstance(d, list):
-        return [v.cuda() for v in d]
+        return [to_cuda(v) for v in d]
 
 
 def train_single(name,

@@ -1,16 +1,11 @@
 import torch
 from .. import encodings
 
-def space(mask, keys, points):
-    expand_keys = keys.unsqueeze(2)
-    expand_points = points.unsqueeze(1)
-    # Separate spatial distances from time distance
-    xy_idxs = [0, 1]
-    t_idxs = 2
-    key_pos = expand_keys[:, :, :, xy_idxs]
-    key_ts = expand_keys[:, :, :, t_idxs]
-    point_pos = expand_points[:, :, :, xy_idxs]
-    point_ts = expand_points[:, :, :, t_idxs]
+def space(mask, ts, keys, points):
+    key_pos = keys.unsqueeze(2)
+    point_pos = points.unsqueeze(1)
+    key_ts = ts.unsqueeze(2)
+    point_ts = ts.unsqueeze(1)
     # Calculate spatial distances
     dist_vec = key_pos - point_pos
     sqr_dist = (dist_vec**2).sum(dim=-1)

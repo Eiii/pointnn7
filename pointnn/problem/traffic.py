@@ -4,12 +4,12 @@ from ..data.traffic import METRDataset, collate
 import torch.nn.functional as F
 
 class TrafficMETR(Problem):
-    def __init__(self, base, normalize):
+    def __init__(self, base, normalize, spectral, eig_dims=None):
         all_fn = lambda date: True
         valid_fn = lambda date: date.week % 10 == 0 and all_fn(date)
         train_fn = lambda date: not valid_fn(date) and all_fn(date)
-        self.train_dataset = METRDataset(base, train_fn, normalize)
-        self.valid_dataset = METRDataset(base, valid_fn, normalize)
+        self.train_dataset = METRDataset(base, train_fn, normalize, spectral, eig_dims)
+        self.valid_dataset = METRDataset(base, valid_fn, normalize, spectral, eig_dims)
         print(len(self.train_dataset), len(self.valid_dataset))
         self.collate_fn = collate
 
