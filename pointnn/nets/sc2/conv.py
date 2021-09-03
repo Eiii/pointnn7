@@ -1,5 +1,6 @@
 from . import dists
 from .. import tpc
+from .. import interaction as intr
 from .. import pointconv
 from .. import encodings
 from ..base import Network
@@ -182,6 +183,58 @@ class SC2TPC(_SC2Common):
 
     def run_tpc(self, data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn):
         out = self.tpc(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
+        return out
+
+    def encode_targets(self, data, ids, ts, mask, pred_ids, pred_ts):
+        pf = parse_frame(data)
+        pos = pf['pos']
+        space_dist_fn = partial(dists.space, mask, ts)
+        time_dist_fn = partial(dists.time, mask, ids, self.time_encoder.encode)
+        # Target info
+        expand_pred_ts = pred_ts.unsqueeze(-1)
+        expand_pred_ids = pred_ids.unsqueeze(-2)
+        expand_pred_ts, expand_pred_ids = torch.broadcast_tensors(expand_pred_ts, expand_pred_ids)
+        flat_pred_ts = expand_pred_ts.reshape(expand_pred_ts.size(0), -1)
+        flat_pred_ids = expand_pred_ids.reshape(expand_pred_ids.size(0), -1)
+        target_dist_fn = partial(dists.target, mask, flat_pred_ids, ids, self.time_encoder.encode)
+        out = self.run_tpc(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
+        target_feats = out.view(expand_pred_ts.size()+(out.size(-1),))
+        return target_feats
+
+class SC2Interaction(_SC2Common):
+    def __init__(self,
+                 neighborhood_sizes = [2**4, 2**5, 2**5],
+                 latent_sizes = [2**5, 2**6, 2**6],
+                 target_size = 2**6,
+                 combine_hidden = [2**6, 2**6],
+                 weight_hidden = [2**5, 2**5],
+                 c_mid = 2**5,
+                 final_hidden = [2**6, 2**6],
+                 decode_hidden = [2**6, 2**6, 2**6],
+                 neighbors=8, timesteps=8, neighbor_attn=0):
+        super().__init__()
+        feat_size = 16
+        pos_dim = 2
+        self.time_encoder = encodings.PeriodEncoding(8, 10)
+        self.make_xxx(feat_size, weight_hidden, c_mid, final_hidden,
+                      latent_sizes, neighborhood_sizes, neighbors,
+                      timesteps, combine_hidden, target_size, pos_dim,
+                      self.time_encoder)
+        self.make_decoders(target_size, decode_hidden)
+
+    def make_xxx(self, feat_size, weight_hidden, c_mid, final_hidden,
+                 latent_sizes, neighborhood_sizes, neighbors,
+                 timesteps, combine_hidden, target_size, pos_dim,
+                 time_encoder):
+        #TODO
+        self.int = intr.TemporalInteraction(feat_size, weight_hidden, c_mid, final_hidden,
+                                            latent_sizes, neighborhood_sizes, neighbors,
+                                            timesteps, combine_hidden, target_size, pos_dim,
+                                            time_encoder)
+
+    def run_tpc(self, data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn):
+        #TODO
+        out = self.int(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
         return out
 
     def encode_targets(self, data, ids, ts, mask, pred_ids, pred_ts):

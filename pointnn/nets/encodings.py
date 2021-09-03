@@ -14,6 +14,7 @@ class PeriodEncoding:
         self.max = max
 
     def encode(self, val):
+        # TODO: This is dumb, too specific
         denom = torch.arange(self.count, dtype=torch.float, device=val.device)
         denom = self.max**(denom/(self.count-1))
         denom = denom.view(1, 1, 1, -1)
