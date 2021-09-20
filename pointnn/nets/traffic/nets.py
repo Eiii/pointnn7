@@ -1,79 +1,20 @@
-from .. import pointconv
 from .. import pointnet
 from .. import encodings
 from .. import tpc
-from .. import spectral
+from .. import interaction as intr
 from ..base import Network
 
 from functools import partial
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
-class TrafficTPC(Network):
-    def __init__(self,
-                 neighborhood_sizes = [2**4, 2**5, 2**5],
-                 latent_sizes = [2**5, 2**6, 2**6],
-                 target_size = 2**6,
-                 combine_hidden = [2**6, 2**6],
-                 weight_hidden = [2**5, 2**5],
-                 c_mid = 2**5,
-                 final_hidden = [2**6, 2**6],
-                 decode_hidden = [2**6, 2**6, 2**6],
-                 neighbors=8, timesteps=12,
-                 period_times=False,
-                 neighbor_attn=None,
-                 mean_delta=False):
-        super().__init__()
-        feat_size = 11 if period_times else 1
-        pos_dim = 2+1
-        self.mean_delta = mean_delta
-        self.period_times = period_times
-        self.time_encoder = encodings.DirectEncoding()
-        self.neighbors = neighbors
-        self.timesteps = timesteps
-        self.tpc = tpc.TemporalPointConv(feat_size, weight_hidden, c_mid, final_hidden,
-                                         latent_sizes, neighborhood_sizes, neighbors,
-                                         timesteps, combine_hidden, target_size, pos_dim,
-                                         self.time_encoder)
-        self.make_decoders(target_size, decode_hidden)
 
+class _TrafficCommon(Network):
     def get_args(self, item):
         xs = ['hist_t', 'hist_id', 'hist_pos', 'hist_data', 'id_dist', 'id_adj', 'hist_mask',
               'tgt_t', 'tgt_id', 'tgt_mask']
         args = [item[x] for x in xs]
-        if self.period_times:
-            args += [item['hist_period_times']]
-        else:
-            args += [None]
         return args
-
-    def make_decoders(self, in_size, decode_hidden):
-        args = {'in_size': in_size, 'out_size': 1,
-                'hidden_sizes': decode_hidden, 'reduction': 'none'}
-        self.pred_net = pointnet.SetTransform(**args)
-
-    def decode_queries(self, feats):
-        pred = self.pred_net(feats)
-        return pred
-
-    def forward(self, hist_t, hist_id, hist_pos, hist_data, id_dist, id_adj, hist_mask,
-                tgt_t, tgt_id, tgt_mask, hist_period_times):
-        space_dist_data = space_neighbors(self.neighbors, hist_t, hist_id, hist_pos, hist_mask, id_dist, id_adj)
-        time_dist_data = time_neighbors(self.timesteps, 5, hist_t, hist_id, hist_mask)
-        query_dist_fn = partial(query, self.time_encoder.encode, tgt_mask, hist_mask,
-                                tgt_id, hist_id)
-        hist_data = hist_data.unsqueeze(-1)
-        if self.period_times:
-            hist_data = torch.cat((hist_data, hist_period_times), dim=-1)
-        query_feats = self.tpc(hist_data, hist_id, hist_pos, hist_t, tgt_t,
-                               space_dist_data=space_dist_data, time_dist_data=time_dist_data, target_dist_fn=query_dist_fn)
-        pred = self.decode_queries(query_feats)
-        if self.mean_delta:
-            means = self._calc_means(tgt_id, hist_id, hist_data)
-            pred = pred+means.unsqueeze(-1)
-        return pred
 
     def _calc_means(self, tgt_id, hist_id, hist_data):
         all_ids = tgt_id.unique()
@@ -86,6 +27,104 @@ class TrafficTPC(Network):
             tgt_means = id_avg[tgt_idxs[0]]
             means[tgt_idxs] = tgt_means
         return means
+
+
+
+class TrafficTPC(_TrafficCommon):
+    def __init__(self,
+                 neighborhood_sizes = [2**4, 2**5, 2**5],
+                 latent_sizes = [2**5, 2**6, 2**6],
+                 target_size = 2**6,
+                 combine_hidden = [2**6, 2**6],
+                 weight_hidden = [2**5, 2**5],
+                 c_mid = 2**5,
+                 final_hidden = [2**6, 2**6],
+                 decode_hidden = [2**6, 2**6, 2**6],
+                 neighbors=8, timesteps=12,
+                 mean_delta=False):
+        super().__init__()
+        feat_size = 1
+        pos_dim = 2+1
+        self.mean_delta = mean_delta
+        self.time_encoder = encodings.DirectEncoding()
+        self.neighbors = neighbors
+        self.timesteps = timesteps
+        self.tpc = tpc.TemporalPointConv(feat_size, weight_hidden, c_mid, final_hidden,
+                                         latent_sizes, neighborhood_sizes, neighbors,
+                                         timesteps, timesteps, combine_hidden,
+                                         target_size, pos_dim, self.time_encoder)
+        self.make_decoders(target_size, decode_hidden)
+
+    def make_decoders(self, in_size, decode_hidden):
+        args = {'in_size': in_size, 'out_size': 1,
+                'hidden_sizes': decode_hidden, 'reduction': 'none'}
+        self.pred_net = pointnet.SetTransform(**args)
+
+    def decode_queries(self, feats):
+        pred = self.pred_net(feats)
+        return pred
+
+    def forward(self, hist_t, hist_id, hist_pos, hist_data, id_dist, id_adj, hist_mask,
+                tgt_t, tgt_id, tgt_mask):
+        space_dist_data = space_neighbors(self.neighbors, hist_t, hist_id, hist_pos, hist_mask, id_dist, id_adj)
+        time_dist_data = time_neighbors(self.timesteps, 5, hist_t, hist_id, hist_mask)
+        query_dist_fn = partial(query, self.time_encoder.encode, tgt_mask, hist_mask,
+                                tgt_id, hist_id)
+        hist_data = hist_data.unsqueeze(-1)
+        query_feats = self.tpc(hist_data, hist_id, hist_pos, hist_t, tgt_t,
+                               space_dist_data=space_dist_data, time_dist_data=time_dist_data, target_dist_fn=query_dist_fn)
+        pred = self.decode_queries(query_feats)
+        if self.mean_delta:
+            means = self._calc_means(tgt_id, hist_id, hist_data)
+            pred = pred+means.unsqueeze(-1)
+        return pred
+
+class TrafficInteraction(_TrafficCommon):
+    def __init__(self,
+                 neighborhood_sizes = [2**4, 2**5, 2**5],
+                 latent_sizes = [2**5, 2**6, 2**6],
+                 target_size = 2**6,
+                 combine_hidden = [2**6, 2**6],
+                 edge_hidden = [2**5, 2**5],
+                 decode_hidden = [2**6, 2**6, 2**6],
+                 neighbors=8, timesteps=12,
+                 mean_delta=False):
+        super().__init__()
+        feat_size = 1
+        pos_dim = 2
+        self.mean_delta = mean_delta
+        self.time_encoder = encodings.DirectEncoding()
+        self.neighbors = neighbors
+        self.timesteps = timesteps
+        self.int = intr.TemporalInteraction(feat_size, edge_hidden,
+                                            latent_sizes, neighborhood_sizes, neighbors,
+                                            timesteps, combine_hidden, target_size, pos_dim,
+                                            self.time_encoder)
+        self.make_decoders(target_size, decode_hidden)
+
+    def make_decoders(self, in_size, decode_hidden):
+        args = {'in_size': in_size, 'out_size': 1,
+                'hidden_sizes': decode_hidden, 'reduction': 'none'}
+        self.pred_net = pointnet.SetTransform(**args)
+
+    def decode_queries(self, feats):
+        pred = self.pred_net(feats)
+        return pred
+
+    def forward(self, hist_t, hist_id, hist_pos, hist_data, id_dist, id_adj, hist_mask,
+                tgt_t, tgt_id, tgt_mask):
+        space_dist_data = space_neighbors(self.neighbors, hist_t, hist_id, hist_pos, hist_mask, id_dist, id_adj)
+        time_dist_data = time_neighbors(self.timesteps, 5, hist_t, hist_id, hist_mask)
+        query_dist_fn = partial(query, self.time_encoder.encode, tgt_mask, hist_mask,
+                                tgt_id, hist_id)
+        hist_data = hist_data.unsqueeze(-1)
+        query_feats = self.int(hist_data, hist_id, hist_pos, hist_t, tgt_t,
+                               space_dist_data=space_dist_data, time_dist_data=time_dist_data, target_dist_fn=query_dist_fn)
+        pred = self.decode_queries(query_feats)
+        if self.mean_delta:
+            means = self._calc_means(tgt_id, hist_id, hist_data)
+            pred = pred+means.unsqueeze(-1)
+        return pred
 
 class TrafficGraphConv(Network):
     def __init__(self,
@@ -143,15 +182,12 @@ class TrafficSpectral(Network):
                  final_hidden = [2**6, 2**6],
                  decode_hidden = [2**6, 2**6, 2**6],
                  neighbors=8, timesteps=12,
-                 period_times=False,
-                 neighbor_attn=None,
                  mean_delta=False,
                  eig_dims=20):
         super().__init__()
-        feat_size = 11 if period_times else 1
+        feat_size = 1
         pos_dim = 2+1
         self.mean_delta = mean_delta
-        self.period_times = period_times
         self.time_encoder = encodings.DirectEncoding()
         self.neighbors = neighbors
         self.timesteps = timesteps
@@ -165,10 +201,6 @@ class TrafficSpectral(Network):
         xs = ['hist_t', 'hist_id', 'hist_pos', 'hist_data', 'id_dist', 'id_adj', 'hist_mask',
               'tgt_t', 'tgt_id', 'tgt_mask']
         args = [item[x] for x in xs]
-        if self.period_times:
-            args += [item['hist_period_times']]
-        else:
-            args += [None]
         args.append(item['eig'])
         return args
 
@@ -182,14 +214,12 @@ class TrafficSpectral(Network):
         return pred
 
     def forward(self, hist_t, hist_id, hist_pos, hist_data, id_dist, id_adj, hist_mask,
-                tgt_t, tgt_id, tgt_mask, hist_period_times, eig):
+                tgt_t, tgt_id, tgt_mask, eig):
         space_dist_data = space_neighbors(self.neighbors, hist_t, hist_id, hist_pos, hist_mask, id_dist, id_adj)
         time_dist_data = time_neighbors(self.timesteps, 5, hist_t, hist_id, hist_mask)
         query_dist_fn = partial(query, self.time_encoder.encode, tgt_mask, hist_mask,
                                 tgt_id, hist_id)
         hist_data = hist_data.unsqueeze(-1)
-        if self.period_times:
-            hist_data = torch.cat((hist_data, hist_period_times), dim=-1)
         query_feats = self.tpc(hist_data, hist_id, hist_pos, hist_t, tgt_t, eig,
                                space_dist_data=space_dist_data, time_dist_data=time_dist_data, target_dist_fn=query_dist_fn)
         pred = self.decode_queries(query_feats)
@@ -221,15 +251,12 @@ class TrafficBlank(Network):
                  final_hidden = [2**6, 2**6],
                  decode_hidden = [2**6, 2**6, 2**6],
                  neighbors=8, timesteps=12,
-                 period_times=False,
-                 neighbor_attn=None,
                  mean_delta=False,
                  eig_dims=20):
         super().__init__()
-        feat_size = 11 if period_times else 1
+        feat_size = 1
         pos_dim = 2+1
         self.mean_delta = mean_delta
-        self.period_times = period_times
         self.time_encoder = encodings.DirectEncoding()
         self.neighbors = neighbors
         self.timesteps = timesteps
@@ -243,10 +270,6 @@ class TrafficBlank(Network):
         xs = ['hist_t', 'hist_id', 'hist_pos', 'hist_data', 'id_dist', 'id_adj', 'hist_mask',
               'tgt_t', 'tgt_id', 'tgt_mask']
         args = [item[x] for x in xs]
-        if self.period_times:
-            args += [item['hist_period_times']]
-        else:
-            args += [None]
         args.append(item['eig'])
         return args
 
@@ -260,14 +283,12 @@ class TrafficBlank(Network):
         return pred
 
     def forward(self, hist_t, hist_id, hist_pos, hist_data, id_dist, id_adj, hist_mask,
-                tgt_t, tgt_id, tgt_mask, hist_period_times, eig):
+                tgt_t, tgt_id, tgt_mask, eig):
         space_dist_data = space_neighbors(self.neighbors, hist_t, hist_id, hist_pos, hist_mask, id_dist, id_adj)
         time_dist_data = time_neighbors(self.timesteps, 5, hist_t, hist_id, hist_mask)
         query_dist_fn = partial(query, self.time_encoder.encode, tgt_mask, hist_mask,
                                 tgt_id, hist_id)
         hist_data = hist_data.unsqueeze(-1)
-        if self.period_times:
-            hist_data = torch.cat((hist_data, hist_period_times), dim=-1)
         query_feats = self.tpc(hist_data, hist_id, hist_pos, hist_t, tgt_t,
                                space_dist_data=space_dist_data, time_dist_data=time_dist_data, target_dist_fn=query_dist_fn)
         pred = self.decode_queries(query_feats)
@@ -299,15 +320,12 @@ class TrafficZero(Network):
                  final_hidden = [2**6, 2**6],
                  decode_hidden = [2**6, 2**6, 2**6],
                  neighbors=8, timesteps=12,
-                 period_times=False,
-                 neighbor_attn=None,
                  mean_delta=False,
                  eig_dims=20):
         super().__init__()
-        feat_size = 11 if period_times else 1
+        feat_size = 1
         pos_dim = 2+1
         self.mean_delta = mean_delta
-        self.period_times = period_times
         self.time_encoder = encodings.DirectEncoding()
         self.neighbors = neighbors
         self.timesteps = timesteps
@@ -321,10 +339,6 @@ class TrafficZero(Network):
         xs = ['hist_t', 'hist_id', 'hist_pos', 'hist_data', 'id_dist', 'id_adj', 'hist_mask',
               'tgt_t', 'tgt_id', 'tgt_mask']
         args = [item[x] for x in xs]
-        if self.period_times:
-            args += [item['hist_period_times']]
-        else:
-            args += [None]
         args.append(item['eig'])
         return args
 
@@ -338,14 +352,12 @@ class TrafficZero(Network):
         return pred
 
     def forward(self, hist_t, hist_id, hist_pos, hist_data, id_dist, id_adj, hist_mask,
-                tgt_t, tgt_id, tgt_mask, hist_period_times, eig):
+                tgt_t, tgt_id, tgt_mask, eig):
         space_dist_data = space_neighbors(self.neighbors, hist_t, hist_id, hist_pos, hist_mask, id_dist, id_adj)
         time_dist_data = time_neighbors(self.timesteps, 5, hist_t, hist_id, hist_mask)
         query_dist_fn = partial(query, self.time_encoder.encode, tgt_mask, hist_mask,
                                 tgt_id, hist_id)
         hist_data = hist_data.unsqueeze(-1)
-        if self.period_times:
-            hist_data = torch.cat((hist_data, hist_period_times), dim=-1)
         query_feats = self.tpc(hist_data, hist_id, hist_pos, hist_t, tgt_t,
                                space_dist_data=space_dist_data, time_dist_data=time_dist_data, target_dist_fn=query_dist_fn)
         pred = self.decode_queries(query_feats)

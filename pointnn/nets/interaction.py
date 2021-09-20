@@ -9,9 +9,7 @@ from .pointconv import calc_neighbor_info
 class TemporalInteraction(nn.Module):
     def __init__(self,
                  feat_size,
-                 weight_hidden,
-                 c_mid,
-                 final_hidden,
+                 edge_hidden,
                  latent_sizes,
                  neighborhood_sizes,
                  neighbors,
@@ -19,16 +17,18 @@ class TemporalInteraction(nn.Module):
                  combine_hidden,
                  target_size,
                  pos_dim,
-                 time_encoder
+                 time_encoder,
+                 query_type='time'
                  ):
         super().__init__()
         self.pos_dim = pos_dim
         self.time_encoder = time_encoder
-        self._make_modules(feat_size, weight_hidden, c_mid, final_hidden,
+        self.query_type = query_type
+        self._make_modules(feat_size, edge_hidden,
                            latent_sizes, neighborhood_sizes,
                            neighbors, timesteps, combine_hidden, target_size)
 
-    def _make_modules(self, feat_size, weight_hidden, c_mid, final_hidden,
+    def _make_modules(self, feat_size, edge_hidden,
                       latent_sizes, neighborhood_sizes, neighbors, timesteps,
                       combine_hidden, target_size):
         self.space_convs = nn.ModuleList()
@@ -36,20 +36,20 @@ class TemporalInteraction(nn.Module):
         self.combine_mlps = nn.ModuleList()
         in_size = feat_size
         neighbor_attn = 0
-        default_args = {'weight_hidden': weight_hidden}
+        default_args = {'edge_hidden': edge_hidden}
         assert len(latent_sizes) == len(neighborhood_sizes)
         for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
             # Space neighborhood
             args = default_args.copy()
             args.update({'neighbors': neighbors, 'c_in': in_size+self.pos_dim, 'c_out': n_sz,
                          'dim': self.pos_dim})
-            pc = InteractionNetwork(**args)
+            pc = InteractionNetworkNeighborhood(**args)
             self.space_convs.append(pc)
             # Time neighborhood
             args = default_args.copy()
             args.update({'neighbors': timesteps, 'c_in': in_size+n_sz+self.time_encoder.out_dim,
                          'c_out': n_sz, 'dim': self.time_encoder.out_dim})
-            pc = InteractionNetwork(**args)
+            pc = InteractionNetworkNeighborhood(**args)
             self.time_convs.append(pc)
             # MLP to next layer
             mlp_args = {'in_size': in_size+2*n_sz, 'out_size': ls,
@@ -58,19 +58,29 @@ class TemporalInteraction(nn.Module):
             self.combine_mlps.append(pn)
             in_size = ls
         # Target conv
+        if self.query_type == 'time':
+            query_dim = self.time_encoder.out_dim
+            query_encoder = self.time_encoder
+        elif self.query_type == 'space':
+            query_dim = self.pos_dim
+            query_encoder = None
         args = default_args.copy()
-        args = {'weight_hidden': [x*2 for x in weight_hidden],
-                'neighbors': timesteps, 'c_in': ls+self.time_encoder.out_dim, 'c_out': target_size,
-                'dim': self.time_encoder.out_dim,
+        args = {'edge_hidden': [x*2 for x in edge_hidden],
+                'neighbors': timesteps, 'c_in': ls+query_dim, 'c_out': target_size,
+                'dim': query_dim,
                 'key_feats': 'query',
-                'pos_encoder': self.time_encoder}
-        self.target_conv = InteractionNetwork(**args)
+                'pos_encoder': query_encoder}
+        self.target_conv = InteractionNetworkNeighborhood(**args)
 
     def forward(self, data, ids, space_pts, time_pts, query_pts,
                 space_dist_fn=None, time_dist_fn=None, target_dist_fn=None,
                 space_dist_data=None, time_dist_data=None, target_dist_data=None):
         out_data = self.encode_input(data, ids, space_pts, time_pts, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data)
-        query_feats = self.encode_queries(out_data, time_pts, query_pts, target_dist_fn, target_dist_data)
+        if self.query_type == 'time':
+            in_query_pts = time_pts
+        elif self.query_type == 'space':
+            in_query_pts = space_pts
+        query_feats = self.encode_queries(out_data, in_query_pts, query_pts, target_dist_fn, target_dist_data)
         return query_feats
 
     def encode_input(self, data, ids, space_points, time_points, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data):
@@ -92,17 +102,20 @@ class TemporalInteraction(nn.Module):
         return key_feats
 
     def encode_queries(self, data, ts, query_ts, target_dist_fn, target_dist_data):
-        enc_ts = self.time_encoder.encode(ts.view([*ts.shape, 1, 1])).squeeze(-2)
+        if self.query_type == 'time': #HACK
+            enc_ts = self.time_encoder.encode(ts.view([*ts.shape, 1, 1])).squeeze(-2)
+        elif self.query_type == 'space':
+            enc_ts = ts
         target_in = torch.cat([enc_ts, data], dim=-1)
         target_feats = self.target_conv(query_ts, ts, target_in, target_dist_fn, target_dist_data)
         return target_feats
 
 
-class InteractionNetwork(nn.Module):
+class InteractionNetworkNeighborhood(nn.Module):
     def __init__(self,
                  neighbors,
                  c_in,
-                 weight_hidden,
+                 edge_hidden,
                  c_out,
                  dim=3,
                  dist_fn=None,
@@ -120,7 +133,7 @@ class InteractionNetwork(nn.Module):
         elif key_feats == 'query':
             in_sz = c_in+dim
         self.edge_conv = SetTransform(in_size=in_sz, out_size=c_out,
-                                      hidden_sizes=list(weight_hidden),
+                                      hidden_sizes=list(edge_hidden),
                                       reduction='none')
 
     def forward(self, keys, points, feats, dist_fn=None, dist_data=None):
@@ -142,7 +155,10 @@ class InteractionNetwork(nn.Module):
         if self.key_feats == 'self':
             exp_feats = feats.unsqueeze(2).expand(-1, -1, neighbor_feats.size(2), -1)
         elif self.key_feats == 'query':
-            enc_keys = self.pos_encoder.encode(keys.view([*keys.shape, 1, 1]))
+            if self.pos_encoder is not None:
+                enc_keys = self.pos_encoder.encode(keys.view([*keys.shape, 1, 1]))
+            else:
+                enc_keys = keys.unsqueeze(-2)
             exp_feats = enc_keys.expand(-1, -1, neighbor_feats.size(2), -1)
         pairs = torch.cat((exp_feats, neighbor_feats), dim=-1)
         edges = self.edge_conv(pairs)

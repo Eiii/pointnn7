@@ -57,8 +57,8 @@ class Trainer:
             self.epoch_sched_step = lambda: None
         elif sched == 'lrtest':
             # hack in the desired values
-            max_epochs = 8
-            min_lr = 1e-4
+            max_epochs = 0.05
+            min_lr = 1e-6
             max_lr = 1e0
             def fn(time):
                 mix = time/max_epochs

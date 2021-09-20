@@ -1,37 +1,133 @@
-# Requirements
+### Interaction Networks
+### Spectral
 
-Off the top of my head:
-* torch
-* Custom kaolin library (see other repo)
+-----
 
-# Get demo datasets
-Run `utils/download-modelnet10.sh` from the project's root directory to download and 
-unpack ModelNet10.
+# Sizes
 
-A demo SC2 dataset is included at `data/sc2scene.tar.zst`. Untar it in-place to make it
-available for use.
+## Small
 
-# Train networks
-The `experiments` folder contains two configuration files that quickly train demo 
-networks. These won't perform well, they're just meant to show off the whole pipeline.
-(Increase the number of epochs / batch size in the config for better results)
+### TPC
 
-To train a SC2 unit transition predictor:
-`python -m pointnn ./experiments/sc2demo.json`
+Parameter count: 393,393
+SC2 Batch size: 512
 
-To train a point cloud autoencoder:
-`python -m pointnn ./experiments/pcdemo.json`
+Entity latent sizes:
+32, 64, 64
+Neighborhood latent sizes:
+16, 16, 16
+Target latent size:
+32
+Entity+Neighborhood encoder hidden:
+32, 32
+Position weight hidden:
+16, 16, 16
+C_mid:
+16
+Final hidden:
+32, 32, 32
+Decode hidden:
+64, 64, 64
 
-# Model Evaluation Scripts
+### Interaction
 
-Scripts to poke at the trained models are in `pointnn.eval`. A lot of them are vestigial
-at this point, so don't expect them to all work or make sense or have a consistent 
-interface.
+Parameter count: 363,269
+SC2 Batch size: 256
 
-These might be helpful though:
+Entity latent sizes:
+64, 64, 64
+Neighborhood latent sizes:
+32, 32, 32
+Target latent size:
+64
+Entity+Neighborhood encoder hidden:
+128, 128
+Edge encoder hidden:
+64, 64, 64
+Decode hidden:
+64, 64, 64
 
-To display Starcraft transition predictions for an entire scene:
-`python -m pointnn.eval.sc2.frame --net output/sc2demo --data data/sc2scene/test`
+## Medium
 
-To test a point cloud autoencoder:
-`python -m pointnn.eval.model --net output/pcdemo --data data/ModelNet10`
+### TPC
+
+Parameter count: 1,454,585
+SC2 Batch size: 150
+
+Entity latent sizes:
+32, 64, 64
+Neighborhood latent sizes:
+32, 32, 32
+Target latent size:
+64
+Entity+Neighborhood encoder hidden:
+64, 64
+Position weight hidden:
+16, 32, 32
+C_mid:
+32
+Final hidden:
+64, 64, 64
+Decode hidden:
+64, 64, 64
+
+### Interaction
+
+Parameter count: 1,389,637
+SC2 Batch size: 128
+
+Entity latent sizes:
+128, 128, 128
+Neighborhood latent sizes:
+64, 64, 64
+Target latent size:
+128
+Entity+Neighborhood encoder hidden:
+256, 256
+Edge encoder hidden:
+128, 128, 128
+Decode hidden:
+128, 128, 128
+
+## Large
+
+### TPC
+
+Parameter count: 4,927,673
+SC2 Batch size: 64
+
+Entity latent sizes:
+64, 64, 128
+Neighborhood latent sizes:
+64, 64, 64
+Target latent size:
+128
+Entity+Neighborhood encoder hidden:
+128, 128
+Position weight hidden:
+32, 64, 64
+C_mid:
+64
+Final hidden:
+64, 128, 128
+Decode hidden:
+64, 128, 128
+
+### Interaction
+
+Parameter count: 5,037,765
+SC2 Batch size: 32
+
+Entity latent sizes:
+128, 128, 128
+Neighborhood latent sizes:
+64, 64, 64
+Target latent size:
+128
+Entity+Neighborhood encoder hidden:
+256, 256
+Edge encoder hidden:
+128, 128, 128
+Decode hidden:
+128, 128, 128
+

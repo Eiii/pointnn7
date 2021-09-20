@@ -178,8 +178,8 @@ class SC2TPC(_SC2Common):
                  time_encoder):
         self.tpc = tpc.TemporalPointConv(feat_size, weight_hidden, c_mid, final_hidden,
                                          latent_sizes, neighborhood_sizes, neighbors,
-                                         timesteps, combine_hidden, target_size, pos_dim,
-                                         time_encoder)
+                                         timesteps, timesteps, combine_hidden,
+                                         target_size, pos_dim, time_encoder)
 
     def run_tpc(self, data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn):
         out = self.tpc(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
@@ -207,27 +207,25 @@ class SC2Interaction(_SC2Common):
                  latent_sizes = [2**5, 2**6, 2**6],
                  target_size = 2**6,
                  combine_hidden = [2**6, 2**6],
-                 weight_hidden = [2**5, 2**5],
-                 c_mid = 2**5,
-                 final_hidden = [2**6, 2**6],
+                 edge_hidden = [2**5, 2**5],
                  decode_hidden = [2**6, 2**6, 2**6],
                  neighbors=8, timesteps=8, neighbor_attn=0):
         super().__init__()
         feat_size = 16
         pos_dim = 2
         self.time_encoder = encodings.PeriodEncoding(8, 10)
-        self.make_xxx(feat_size, weight_hidden, c_mid, final_hidden,
+        self.make_xxx(feat_size, edge_hidden,
                       latent_sizes, neighborhood_sizes, neighbors,
                       timesteps, combine_hidden, target_size, pos_dim,
                       self.time_encoder)
         self.make_decoders(target_size, decode_hidden)
 
-    def make_xxx(self, feat_size, weight_hidden, c_mid, final_hidden,
+    def make_xxx(self, feat_size, edge_hidden,
                  latent_sizes, neighborhood_sizes, neighbors,
                  timesteps, combine_hidden, target_size, pos_dim,
                  time_encoder):
         #TODO
-        self.int = intr.TemporalInteraction(feat_size, weight_hidden, c_mid, final_hidden,
+        self.int = intr.TemporalInteraction(feat_size, edge_hidden,
                                             latent_sizes, neighborhood_sizes, neighbors,
                                             timesteps, combine_hidden, target_size, pos_dim,
                                             time_encoder)

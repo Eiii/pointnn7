@@ -14,6 +14,7 @@ def plot_lr_curves(measures, out_path):
     ax.set_xlabel('Learning Rate')
     ax.set_ylabel('Loss')
     ax.set_xscale('log')
+    ax.set_yscale('log')
     all_names = list({m.name for m in measures if m.name is not None})
     print(f'Plotting {all_names}...')
     for name in all_names:
