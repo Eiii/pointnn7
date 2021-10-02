@@ -18,7 +18,7 @@ class Trainer:
     def __init__(self, name, net, problem, out_path, report_every=0.1,
                  valid_every=1, optim='adam', sched='cos',
                  batch_size=4, lr=1e-3, min_lr=0, weight_decay=1e-4,
-                 momentum=0.95, period=100, num_workers=0,
+                 momentum=0.95, period=100, num_workers=0, clip_grad=None,
                  disable_valid=False):
         # 'Macro' parameters
         self.net = net
@@ -28,6 +28,7 @@ class Trainer:
         # Training parameters
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.clip_grad = clip_grad
         # UI parameters
         self.report_every = report_every
         self.valid_every = valid_every
@@ -121,6 +122,9 @@ class Trainer:
                     loss += net_loss
                 # Optimization step
                 loss.backward()
+                # Clip gradients
+                if self.clip_grad:
+                    torch.nn.utils.clip_grad_norm_(self.net.parameters(), self.clip_grad)
                 self.optim.step()
                 # Batch-wise schedule update
                 self.batch_sched_step(batch_time)
@@ -134,6 +138,12 @@ class Trainer:
             self.epoch_sched_step()
         # Final validation
         self.validation_report(valid_loader, batch_time)
+
+    def _debug_grad_norm(self):
+        norm_type = 2
+        total_norm = torch.norm(torch.stack([torch.norm(p.grad.detach(), norm_type) for p in self.net.parameters()]), norm_type)
+        return total_norm
+
 
     def validation_report(self, ds, epoch):
         if self.problem.valid_dataset is not None and not self.disable_valid:
