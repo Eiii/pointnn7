@@ -1,21 +1,19 @@
 {
-  "experiment_path": "/nfs/hpc/share/merriler/output/t-traffic-run1",
-  "problem_type": "TrafficMETR",
+  "experiment_path": "/nfs/hpc/share/merriler/output/t-weather-run1",
+  "problem_type": "Weather",
   "problem_args": {
-    "base": "/nfs/hpc/share/merriler/data/traffic/METR-LA",
-    "normalize": false,
-    "spectral": false
+    "data_path": "/nfs/hpc/share/merriler/data/weather"
   },
-  "epochs": 5,
+  "epochs": 6,
   "entries": [
     {
       "name": "TInt-Med",
-      "net": "TrafficInteraction",
+      "net": "WeatherInteraction",
       "train_args": {
         "sched": "none",
         "optim": "adam",
-        "lr": 0.001,
-        "batch_size": 16,
+        "lr": 0.01,
+        "batch_size": 20,
         "report_every": 0.005,
         "valid_every": 0.05,
         "num_workers": 4,
@@ -28,7 +26,8 @@
         "combine_hidden": [256, 256],
         "edge_hidden": [128, 128, 128],
         "decode_hidden": [128, 128, 128],
-        "neighbors": 8
+        "neighbors": 8,
+        "station_dropout": 0.2
       },
       "repeat": 1
     }

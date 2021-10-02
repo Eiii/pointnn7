@@ -1,26 +1,19 @@
 {
-  "experiment_path": "/nfs/hpc/share/merriler/output/t-sc-run1",
-  "problem_type": "StarcraftScene",
+  "experiment_path": "/nfs/hpc/share/merriler/output/t-weather-run1",
+  "problem_type": "Weather",
   "problem_args": {
-    "data_path": "/nfs/hpc/share/merriler/data/sc2scene",
-    "num_pred": 4,
-    "max_hist": 5,
-    "hist_dist": "uniform",
-    "hist_dist_args": {"max": 10},
-    "pred_dist": "fixed",
-    "pred_dist_args": {"ts": [1, 2, 4, 7]},
-    "frame_skip": 5
+    "data_path": "/nfs/hpc/share/merriler/data/weather"
   },
-  "epochs": 1,
+  "epochs": 6,
   "entries": [
     {
       "name": "TInt-Small",
-      "net": "SC2Interaction",
+      "net": "WeatherInteraction",
       "train_args": {
         "sched": "none",
         "optim": "adam",
         "lr": 0.01,
-        "batch_size": 256,
+        "batch_size": 32,
         "report_every": 0.005,
         "valid_every": 0.05,
         "num_workers": 4,
@@ -33,7 +26,8 @@
         "combine_hidden": [128, 128],
         "edge_hidden": [64, 64, 64],
         "decode_hidden": [64, 64, 64],
-        "neighbors": 8
+        "neighbors": 8,
+        "station_dropout": 0.2
       },
       "repeat": 1
     }

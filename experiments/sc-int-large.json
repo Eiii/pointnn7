@@ -1,5 +1,5 @@
 {
-  "experiment_path": "/nfs/hpc/share/merriler/output/t-sc-run0",
+  "experiment_path": "/nfs/hpc/share/merriler/output/t-sc-run1",
   "problem_type": "StarcraftScene",
   "problem_args": {
     "data_path": "/nfs/hpc/share/merriler/data/sc2scene",
@@ -23,7 +23,8 @@
         "batch_size": 32,
         "report_every": 0.005,
         "valid_every": 0.05,
-        "num_workers": 4
+        "num_workers": 4,
+        "clip_grad": 5
       },
       "net_args": {
         "neighborhood_sizes": [64, 128, 128],
