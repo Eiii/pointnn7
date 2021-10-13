@@ -2,7 +2,6 @@ from . import problem
 from .measure import Measure
 
 import pickle
-import itertools
 import torch
 import torch.optim as optim
 import torch.optim.lr_scheduler as schedule
@@ -19,7 +18,7 @@ class Trainer:
                  valid_every=1, optim='adam', sched='cos',
                  batch_size=4, lr=1e-3, min_lr=0, weight_decay=1e-4,
                  momentum=0.95, period=100, num_workers=0, clip_grad=None,
-                 disable_valid=False):
+                 disable_valid=False, reset_net=None, lr_max_epochs=None):
         # 'Macro' parameters
         self.net = net
         self.problem = problem
@@ -29,13 +28,14 @@ class Trainer:
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.clip_grad = clip_grad
+        self.reset_net = reset_net
         # UI parameters
         self.report_every = report_every
         self.valid_every = valid_every
         # Set up tools
         self.measure = Measure(name)
         self.init_optim(optim, lr, weight_decay, momentum)
-        self.init_sched(sched, period, lr, min_lr)
+        self.init_sched(sched, period, lr, min_lr, lr_max_epochs)
 
     def init_optim(self, optim_, lr, wd, mom):
         if optim_ == 'adam':
@@ -46,7 +46,7 @@ class Trainer:
                                    momentum=mom, nesterov=True,
                                    weight_decay=wd)
 
-    def init_sched(self, sched, period, init_lr, min_lr):
+    def init_sched(self, sched, period, init_lr, min_lr, lr_max_epochs):
         if sched == 'cos':
             self.sched = schedule.CosineAnnealingWarmRestarts(self.optim,
                                                               period, 2,
@@ -58,11 +58,10 @@ class Trainer:
             self.epoch_sched_step = lambda: None
         elif sched == 'lrtest':
             # hack in the desired values
-            max_epochs = 0.05
-            min_lr = 1e-6
+            min_lr = 1e-8
             max_lr = 1e0
             def fn(time):
-                mix = time/max_epochs
+                mix = time/lr_max_epochs
                 goal = (min_lr**(1-mix))*(max_lr**mix)
                 mult = goal/init_lr
                 return mult
@@ -91,6 +90,8 @@ class Trainer:
         epoch = 0
         # Eval on validation, record results
         self.validation_report(valid_loader, epoch)
+        if self.reset_net:
+            self.create_checkpoint()
         while not end_training:
             # Train on batch
             for i, data in enumerate(loader):
@@ -107,6 +108,8 @@ class Trainer:
                     running_loss = 0
                     batches_elapsed = 0
                     next_train_report += self.report_every
+                    if self.reset_net:
+                        self.load_checkpoint()
                 if batch_time > next_valid:
                     self.validation_report(valid_loader, batch_time)
                     next_valid += self.valid_every
@@ -144,6 +147,19 @@ class Trainer:
         total_norm = torch.norm(torch.stack([torch.norm(p.grad.detach(), norm_type) for p in self.net.parameters()]), norm_type)
         return total_norm
 
+    def create_checkpoint(self):
+        if self.reset_net is True:
+            self.checkpoint_state = self.net.state_dict()
+        elif type(self.reset_net) == str:
+            reset_path = Path(self.reset_net)
+            with open(reset_path, 'rb') as fd:
+                data = pickle.load(fd)
+                self.checkpoint_state = data['state_dict']
+        else:
+            raise ValueError('Unknown checkpoint argument')
+
+    def load_checkpoint(self):
+        self.net.load_state_dict(self.checkpoint_state)
 
     def validation_report(self, ds, epoch):
         if self.problem.valid_dataset is not None and not self.disable_valid:

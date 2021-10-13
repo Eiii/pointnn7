@@ -81,7 +81,8 @@ def make_plots(folder, out_path, liny=False, filter=None, training=False,
     measures = [r['measure'] for r in common.load_any(folder)]
     if filter:
         filters = filter.split(',')
-        measures = [m for m in measures if m.name in filters]
+        measures = [m for m in measures
+                    if any(f in m.name for f in filters)]
     plot_training_curves(measures, out_path, training, liny, skip_first)
     plt.tight_layout()
     plt.savefig(out_path)
