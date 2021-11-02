@@ -61,16 +61,19 @@ class _SC2Common(Network):
                 'pos': pos,
                 'alive': alive}
 
+
 class SC2SeFT(_SC2Common):
     def __init__(self,
-                 neighborhood_sizes = [2**4, 2**5, 2**5],
-                 latent_sizes = [2**5, 2**6, 2**6],
-                 target_size = 2**6,
-                 combine_hidden = [2**6, 2**6],
-                 hidden = [2**8, 2**8, 2**8],
-                 decode_hidden = [2**6, 2**6, 2**6],
+                 neighborhood_sizes,
+                 latent_sizes,
+                 target_size,
+                 combine_hidden,
+                 hidden,
+                 decode_hidden,
+                 neighbors,
+                 timesteps,
                  self_attention=False,
-                 neighbors=8, timesteps=8):
+                 ):
         super().__init__()
         feat_size = 16
         self.make_encoders(feat_size, neighborhood_sizes, latent_sizes, target_size,
@@ -151,17 +154,18 @@ class SC2SeFT(_SC2Common):
         target_feats = target_feats.view(expand_pred_ts.size()+(target_feats.size(-1),))
         return target_feats
 
+
 class SC2TPC(_SC2Common):
     def __init__(self,
-                 neighborhood_sizes = [2**4, 2**5, 2**5],
-                 latent_sizes = [2**5, 2**6, 2**6],
-                 target_size = 2**6,
-                 combine_hidden = [2**6, 2**6],
-                 weight_hidden = [2**5, 2**5],
-                 c_mid = 2**5,
-                 final_hidden = [2**6, 2**6],
-                 decode_hidden = [2**6, 2**6, 2**6],
-                 neighbors=8, timesteps=8, neighbor_attn=0):
+                 neighborhood_sizes,
+                 latent_sizes,
+                 target_size,
+                 combine_hidden,
+                 weight_hidden,
+                 c_mid,
+                 final_hidden,
+                 decode_hidden,
+                 neighbors, timesteps, neighbor_attn=0):
         super().__init__()
         feat_size = 16
         pos_dim = 2
@@ -201,15 +205,16 @@ class SC2TPC(_SC2Common):
         target_feats = out.view(expand_pred_ts.size()+(out.size(-1),))
         return target_feats
 
+
 class SC2Interaction(_SC2Common):
     def __init__(self,
-                 neighborhood_sizes = [2**4, 2**5, 2**5],
-                 latent_sizes = [2**5, 2**6, 2**6],
-                 target_size = 2**6,
-                 combine_hidden = [2**6, 2**6],
-                 edge_hidden = [2**5, 2**5],
-                 decode_hidden = [2**6, 2**6, 2**6],
-                 neighbors=8, timesteps=8, neighbor_attn=0):
+                 neighborhood_sizes,
+                 latent_sizes,
+                 target_size,
+                 combine_hidden,
+                 edge_hidden,
+                 decode_hidden,
+                 neighbors, timesteps, neighbor_attn=0):
         super().__init__()
         feat_size = 16
         pos_dim = 2
@@ -251,18 +256,19 @@ class SC2Interaction(_SC2Common):
         target_feats = out.view(expand_pred_ts.size()+(out.size(-1),))
         return target_feats
 
+
 from .. import spectral
 class SC2Spectral(SC2TPC):
     def __init__(self,
-                 neighborhood_sizes = [2**4, 2**5, 2**5],
-                 latent_sizes = [2**5, 2**6, 2**6],
-                 target_size = 2**6,
-                 combine_hidden = [2**6, 2**6],
-                 weight_hidden = [2**5, 2**5],
-                 c_mid = 2**5,
-                 final_hidden = [2**6, 2**6],
-                 decode_hidden = [2**6, 2**6, 2**6],
-                 neighbors=8, timesteps=8, neighbor_attn=0, eig_dims=25, lap_type='comb'):
+                 neighborhood_sizes,
+                 latent_sizes,
+                 target_size,
+                 combine_hidden,
+                 weight_hidden,
+                 c_mid,
+                 final_hidden,
+                 decode_hidden,
+                 neighbors, timesteps, neighbor_attn=0, eig_dims=25, lap_type='comb'):
         self.eig_dims = eig_dims
         self.lap_type = lap_type
         super().__init__(neighborhood_sizes, latent_sizes, target_size,
@@ -284,6 +290,7 @@ class SC2Spectral(SC2TPC):
                                         timesteps, combine_hidden, target_size, pos_dim,
                                         time_encoder, self.eig_dims, self.lap_type)
 
+
 class SC2Blank(SC2TPC):
     def make_tpc(self, feat_size, weight_hidden, c_mid, final_hidden,
                  latent_sizes, neighborhood_sizes, neighbors,
@@ -293,6 +300,7 @@ class SC2Blank(SC2TPC):
                                      latent_sizes, neighborhood_sizes, neighbors,
                                      timesteps, combine_hidden, target_size, pos_dim,
                                      time_encoder)
+
 
 class SC2Zero(SC2TPC):
     def make_tpc(self, feat_size, weight_hidden, c_mid, final_hidden,
@@ -304,14 +312,15 @@ class SC2Zero(SC2TPC):
                                     timesteps, combine_hidden, target_size, pos_dim,
                                     time_encoder)
 
+
 class SC2GC(_SC2Common):
     def __init__(self,
-                 neighborhood_sizes = [2**4, 2**5, 2**5],
-                 latent_sizes = [2**5, 2**6, 2**6],
-                 target_size = 2**6,
-                 combine_hidden = [2**6, 2**6],
-                 decode_hidden = [2**6, 2**6, 2**6],
-                 neighbors=8, timesteps=8):
+                 neighborhood_sizes,
+                 latent_sizes,
+                 target_size,
+                 combine_hidden,
+                 decode_hidden,
+                 neighbors, timesteps):
         super().__init__()
         feat_size = 16
         pos_dim = 2
@@ -337,18 +346,19 @@ class SC2GC(_SC2Common):
         target_feats = out.view(expand_pred_ts.size()+(out.size(-1),))
         return target_feats
 
+
 class SC2TPCAttn(_SC2Common):
     def __init__(self,
-                 neighborhood_sizes = [2**4, 2**5, 2**5],
-                 latent_sizes = [2**5, 2**6, 2**6],
-                 target_size = 2**6,
-                 combine_hidden = [2**6, 2**6],
-                 weight_hidden = [2**5, 2**5],
-                 c_mid = 2**5,
-                 final_hidden = [2**6, 2**6],
-                 decode_hidden = [2**6, 2**6, 2**6],
-                 neighbors=8, timesteps=8,
-                 heads=3):
+                 neighborhood_sizes,
+                 latent_sizes,
+                 target_size,
+                 combine_hidden,
+                 weight_hidden,
+                 c_mid,
+                 final_hidden,
+                 decode_hidden,
+                 neighbors, timesteps,
+                 heads):
         super().__init__()
         feat_size = 16
         self.make_encoders(feat_size, neighborhood_sizes, latent_sizes, target_size,
@@ -549,17 +559,18 @@ class SC2Mink(_SC2Common):
         return target_feats
 """
 
+
 class SC2TPCSingle(_SC2Common):
     def __init__(self,
-                 neighborhood_sizes = [2**4, 2**5, 2**5],
-                 latent_sizes = [2**5, 2**6, 2**6],
-                 target_size = 2**6,
-                 combine_hidden = [2**6, 2**6],
-                 weight_hidden = [2**5, 2**5],
-                 c_mid = 2**5,
-                 final_hidden = [2**6, 2**6],
-                 decode_hidden = [2**6, 2**6, 2**6],
-                 neighbors=8, timesteps=8, time_factor=1):
+                 neighborhood_sizes,
+                 latent_sizes,
+                 target_size,
+                 combine_hidden,
+                 weight_hidden,
+                 c_mid,
+                 final_hidden,
+                 decode_hidden,
+                 neighbors, timesteps, time_factor):
         super().__init__()
         feat_size = 16
         self.time_factor = time_factor

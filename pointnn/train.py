@@ -14,17 +14,24 @@ from uuid import uuid4
 
 class Trainer:
     """Defines and tracks the state of a training run"""
-    def __init__(self, name, net, problem, out_path, report_every=0.1,
-                 valid_every=1, optim='adam', sched='cos',
-                 batch_size=4, lr=1e-3, min_lr=0, weight_decay=1e-4,
-                 momentum=0.95, period=100, num_workers=0, clip_grad=None,
-                 disable_valid=False, reset_net=None, lr_max_epochs=None):
+    def __init__(self, name, net, problem, out_path, epochs,
+                 report_every=0.1, valid_every=1,
+                 optim='adam', sched='cos',
+                 batch_size=4,
+                 lr=1e-3, min_lr=0,
+                 weight_decay=0, momentum=0.95,
+                 period=100,
+                 num_workers=0,
+                 clip_grad=None,
+                 disable_valid=False,
+                 reset_net=None):
         # 'Macro' parameters
         self.net = net
         self.problem = problem
         self.out_path = out_path
         self.disable_valid = disable_valid
         # Training parameters
+        self.epochs = epochs
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.clip_grad = clip_grad
@@ -35,7 +42,7 @@ class Trainer:
         # Set up tools
         self.measure = Measure(name)
         self.init_optim(optim, lr, weight_decay, momentum)
-        self.init_sched(sched, period, lr, min_lr, lr_max_epochs)
+        self.init_sched(sched, period, lr, min_lr, epochs)
 
     def init_optim(self, optim_, lr, wd, mom):
         if optim_ == 'adam':
@@ -69,7 +76,7 @@ class Trainer:
             self.batch_sched_step = lambda x: self.sched.step(x)
             self.epoch_sched_step = lambda: None
 
-    def train(self, epoch_limit):
+    def train(self):
         # Set up loaders for training&valid data
         loader_args = {'shuffle': True, 'batch_size': self.batch_size,
                        'drop_last': True, 'num_workers': self.num_workers,
@@ -97,7 +104,7 @@ class Trainer:
             for i, data in enumerate(loader):
                 # Check reporting & termination conditions
                 batch_time = epoch + i/num_batches
-                if batch_time > epoch_limit:
+                if batch_time > self.epochs:
                     end_training = True
                     break
                 if batch_time > next_train_report:
@@ -219,11 +226,12 @@ def train_single(name,
                  out_dir):
     """Main 'entry point' to train a specified network on a specified problem
     """
-    prob = problem.make_problem(*problem_args)
-    # Generate random ID for this training run
+    prob = problem.make_problem(problem_args)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     uid = uuid4().hex
-    out_path = Path(out_dir) / f'{name}:{uid}'
+    out_path = out_dir / f'{name}:{uid}'
     print(out_path)
     trainer = Trainer(name, net, prob, out_path, **train_args)
-    trainer.train(epochs)
+    trainer.train()
     trainer.dump_results()

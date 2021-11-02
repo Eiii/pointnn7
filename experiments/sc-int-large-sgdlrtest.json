@@ -1,0 +1,26 @@
+{
+  "experiment_path": "/nfs/hpc/share/merriler/output/t-sc-lrtest2-sgd",
+  "problem_args": "problem/sc-default.json",
+  "entries": [
+    {
+      "name": "TInt-Large",
+      "net": "SC2Interaction",
+      "train_args": {
+        "BASE": "train/sc-default.json",
+        "optim": "sgd",
+        "epochs": 0.5,
+        "sched": "lrtest",
+        "reset_net": true,
+        "lr": 0.01,
+        "batch_size": 32,
+        "disable_valid": true
+      },
+      "net_args": {
+        "BASE": "net/int-large.json",
+        "net_type": "SC2Interaction",
+        "neighbors": 8
+      }
+    }
+  ]
+}
+  

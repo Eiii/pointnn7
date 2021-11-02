@@ -1,0 +1,20 @@
+{
+  "output_path": "/nfs/hpc/share/merriler/output/t-sc-run2-onepred",
+  "problem_args": "problem/sc-onepred.json",
+  "entries": [
+    {
+      "name": "TInt-Large",
+      "train_args": {
+        "BASE": "train/sc-default.json",
+        "batch_size": 32,
+        "lr": 1.58e-3,
+        "min_lr": 6.31e-8
+      },
+      "net_args": {
+        "BASE": "net/int-large.json",
+        "net_type": "SC2Interaction"
+      }
+    }
+  ]
+}
+  

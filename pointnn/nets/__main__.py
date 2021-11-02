@@ -1,6 +1,7 @@
 from . import make_net
 from . import base
 from .. import utils
+from .. import experiment
 
 import argparse
 
@@ -19,8 +20,8 @@ def make_test_nets(path):
         desc = json.load(fd)
     net_list = []
     for entry in desc['entries']:
-        net_args = entry.get('net_args', dict())
-        net = make_net(entry['net'], **net_args)
+        net_args = experiment.load_dict(path, entry.get('net_args', dict()))
+        net = make_net(net_args)
         net_list.append((entry['name'], net))
     return net_list
 

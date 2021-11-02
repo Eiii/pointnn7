@@ -1,0 +1,20 @@
+{
+  "output_path": "/nfs/hpc/share/merriler/output/t-sc-run2",
+  "problem_args": "problem/sc-default.json",
+  "entries": [
+    {
+      "name": "TGC-Small",
+      "train_args": {
+        "BASE": "train/sc-default.json",
+        "batch_size": 256,
+        "lr": 8.28e-3,
+        "min_lr": 1.09e-5
+      },
+      "net_args": {
+        "BASE": "net/gc-small.json",
+        "net_type": "SC2GC"
+      }
+    }
+  ]
+}
+  

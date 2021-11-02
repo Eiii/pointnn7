@@ -64,7 +64,7 @@ def batch(data_path, path, ts=[1, 2, 4, 7], out='sc-loss.pkl'):
         net_paths = path.glob(name+'*.pkl')
         res_l = []
         for net_path in net_paths:
-            print('x')
+            print(net_path)
             net = common.make_net(common.load_result(net_path))
             losses = run_net(net, ds)
             res_l.append(losses)
@@ -96,6 +96,7 @@ def table(path):
 
 def plot(path):
     pkls = list(Path('.').glob(path+'*'))
+    print(pkls)
     ts = [int(p.stem.split('-')[-1]) for p in pkls]
     plot_data = defaultdict(dict)
     for t, pkl in sorted(zip(ts, pkls)):
@@ -109,11 +110,13 @@ def plot(path):
     fig, ax = plt.subplots()
     width = 0.4
     for i, (name, t_data) in enumerate(plot_data.items()):
-        ts = list(range(1, 1+10))
+        ts = list(range(1, 1+12))
         means = [t_data[t][0] for t in ts]
+        print(means)
         plot_ts = [t+i*width for t in ts]
         ax.bar(plot_ts, means, width, label=name)
     ax.legend()
+    #ax.set_yscale('log')
     ax.set_xlabel('Time Delta')
     ax.set_ylabel('Avg. Loss')
     fig.savefig('out.png')

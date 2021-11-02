@@ -5,7 +5,9 @@ from . import weather
 from . import traffic
 
 
-def make_net(class_name, **kwargs):
+def make_net(net_args):
+    class_name = net_args['net_type']
+    kwargs = {k: v for k, v in net_args.items() if k != 'net_type'}
     # Get desired class
     class_ = base._net_map[class_name]
     # Get default arguments for that class

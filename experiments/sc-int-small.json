@@ -1,41 +1,19 @@
 {
-  "experiment_path": "/nfs/hpc/share/merriler/output/t-sc-run1",
-  "problem_type": "StarcraftScene",
-  "problem_args": {
-    "data_path": "/nfs/hpc/share/merriler/data/sc2scene",
-    "num_pred": 4,
-    "max_hist": 5,
-    "hist_dist": "uniform",
-    "hist_dist_args": {"max": 10},
-    "pred_dist": "fixed",
-    "pred_dist_args": {"ts": [1, 2, 4, 7]},
-    "frame_skip": 5
-  },
-  "epochs": 1,
+  "output_path": "/nfs/hpc/share/merriler/output/t-sc-run2",
+  "problem_args": "problem/sc-default.json",
   "entries": [
     {
       "name": "TInt-Small",
-      "net": "SC2Interaction",
       "train_args": {
-        "sched": "none",
-        "optim": "adam",
-        "lr": 0.01,
+        "BASE": "train/sc-default.json",
         "batch_size": 256,
-        "report_every": 0.005,
-        "valid_every": 0.05,
-        "num_workers": 4,
-        "clip_grad": 5
+        "lr": 6.85e-3,
+        "min_lr": 1.32e-5
       },
       "net_args": {
-        "neighborhood_sizes": [32, 32, 32],
-        "latent_sizes": [64, 64, 64],
-        "target_size": 64,
-        "combine_hidden": [128, 128],
-        "edge_hidden": [64, 64, 64],
-        "decode_hidden": [64, 64, 64],
-        "neighbors": 8
-      },
-      "repeat": 1
+        "BASE": "net/int-small.json",
+        "net_type": "SC2Interaction"
+      }
     }
   ]
 }
