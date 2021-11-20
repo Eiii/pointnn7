@@ -8,12 +8,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+def get_lrs(tl):
+    breakpoint()
+    return [t['lr'] for t in tl]
+
+
+def get_wds(tl):
+    return [1-t['epoch']/0.5 for t in tl]
+
+
 def plot_lr_curves(measures, out_path, skip_first, normalize):
     size = (8, 5)
     fig, ax = plt.subplots(figsize=size, dpi=200)
     ax.set_xlabel('Learning Rate')
     ax.set_ylabel('Loss Change')
-    ax.set_xscale('log')
+    #ax.set_xscale('log')
     ax.set_yscale('log')
     all_names = list({m.name for m in measures if m.name is not None})
     print(f'Plotting {all_names}...')
@@ -23,7 +32,7 @@ def plot_lr_curves(measures, out_path, skip_first, normalize):
         tls = [m._training_loss for m in measures if m.name == name]
         xs = ys = None
         for tl in tls:
-            x = [t['lr'] for t in tl]
+            x = get_wds(tl)
             y = [t['loss'] for t in tl]
             y_array = np.array([y])
             if len(x) == 0:

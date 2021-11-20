@@ -52,7 +52,7 @@ def show_results(losses):
 
 
 def batch(data_path, path, ts=[1, 2, 4, 7], out='sc-loss.pkl'):
-    names = ['TInt-Small', 'TPC-Small']
+    names = ['TPC-Small', 'TInt-Small', 'TGC-Small']
     ds = StarcraftDataset(data_path, num_pred=len(ts), max_hist=5, hist_dist='uniform',
                           hist_dist_args={'max': 10}, pred_dist='fixed',
                           pred_dist_args={'ts': ts},
@@ -95,7 +95,7 @@ def table(path):
 
 
 def plot(path):
-    pkls = list(Path('.').glob(path+'*'))
+    pkls = list(Path('.').glob(path+'out*.pkl'))
     print(pkls)
     ts = [int(p.stem.split('-')[-1]) for p in pkls]
     plot_data = defaultdict(dict)
@@ -105,10 +105,11 @@ def plot(path):
         for net, losses in data.items():
             losses = losses.sum(dim=-1)
             mean = losses.mean().item()
+            mean = min(mean, 5)
             sem = losses.std().item() / (len(losses)**0.5)
             plot_data[net][t] = (mean, sem)
     fig, ax = plt.subplots()
-    width = 0.4
+    width = 0.9/3
     for i, (name, t_data) in enumerate(plot_data.items()):
         ts = list(range(1, 1+12))
         means = [t_data[t][0] for t in ts]

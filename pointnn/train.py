@@ -75,6 +75,15 @@ class Trainer:
             self.sched = schedule.LambdaLR(self.optim, fn)
             self.batch_sched_step = lambda x: self.sched.step(x)
             self.epoch_sched_step = lambda: None
+        elif sched == 'wdtest':
+            # hack in the desired values
+            def set_wd(time):
+                wd = 1.0 - (time / lr_max_epochs)
+                for g in self.optim.param_groups:
+                    g['weight_decay'] = wd
+            set_wd(0)
+            self.batch_sched_step = lambda x: set_wd(x)
+            self.epoch_sched_step = lambda: None
 
     def train(self):
         # Set up loaders for training&valid data
