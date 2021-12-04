@@ -1,0 +1,5 @@
+{
+  "problem_type": "Weather",
+  "data_path": "/nfs/hpc/share/merriler/data/weather",
+  "drop": 0.1
+}

@@ -3,14 +3,14 @@
   "problem_args": "problem/traffic-default.json",
   "entries": [
     {
-      "name": "TPC-Small",
+      "name": "GC-Med",
       "train_args": {
         "BASE": "train/traffic-default.json",
         "batch_size": 40
       },
       "net_args": {
-        "BASE": "net/tpc-small.json",
-        "net_type": "TrafficTPC"
+        "BASE": "net/gc-med.json",
+        "net_type": "TrafficGraphConv"
       }
     }
   ]

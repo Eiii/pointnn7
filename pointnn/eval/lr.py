@@ -9,7 +9,6 @@ import numpy as np
 
 
 def get_lrs(tl):
-    breakpoint()
     return [t['lr'] for t in tl]
 
 
@@ -22,7 +21,7 @@ def plot_lr_curves(measures, out_path, skip_first, normalize):
     fig, ax = plt.subplots(figsize=size, dpi=200)
     ax.set_xlabel('Learning Rate')
     ax.set_ylabel('Loss Change')
-    #ax.set_xscale('log')
+    ax.set_xscale('log')
     ax.set_yscale('log')
     all_names = list({m.name for m in measures if m.name is not None})
     print(f'Plotting {all_names}...')
@@ -32,7 +31,7 @@ def plot_lr_curves(measures, out_path, skip_first, normalize):
         tls = [m._training_loss for m in measures if m.name == name]
         xs = ys = None
         for tl in tls:
-            x = get_wds(tl)
+            x = get_lrs(tl)
             y = [t['loss'] for t in tl]
             y_array = np.array([y])
             if len(x) == 0:
@@ -47,7 +46,7 @@ def plot_lr_curves(measures, out_path, skip_first, normalize):
             ys = ys[1:]
         if normalize:
             ys = ys / ys[0]
-            max_loss = 1.1
+            max_loss = 2
             ys[ys>max_loss] = max_loss
             #ys = ys - ys[0]
         calc_thresh(xs, ys)
@@ -57,14 +56,15 @@ def plot_lr_curves(measures, out_path, skip_first, normalize):
     ax.legend()
 
 
-def calc_thresh(xs, ys, amt=0.1):
+def calc_thresh(xs, ys, amt=0.05):
     baseline = ys[0]
     best = ys.min()
     thresh = baseline + (best-baseline)*amt
-    good_xs = xs[ys<thresh]
-    min_xs = float(good_xs.min())
-    max_xs = float(xs[ys==ys.min()])
-    print(f'{min_xs:.2e} {max_xs:.2e}')
+    good_xs = xs[ys < thresh]
+    min_good = float(good_xs.min())
+    bad_xs = xs[(ys > baseline) * (xs > min_good)]
+    min_bad = float(bad_xs.min())
+    print(f'{min_good:.2e} {min_bad:.2e}')
 
 
 def make_plots(folder, out_path, filter, skip_first, normalize):

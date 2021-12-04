@@ -117,15 +117,19 @@ class TemporalGraphConv(nn.Module):
                  neighbors,
                  timesteps,
                  pos_dim,
-                 time_encoder
+                 time_encoder,
+                 target_type
                  ):
         super().__init__()
         self.pos_dim = pos_dim
         self.time_encoder = time_encoder
         self._make_modules(feat_size, latent_sizes, neighborhood_sizes,
-                           combine_hidden, target_size, neighbors, timesteps)
+                           combine_hidden, target_size, neighbors, timesteps,
+                           target_type)
 
-    def _make_modules(self, feat_size, latent_sizes, neighborhood_sizes, combine_hidden, target_size, neighbors, timesteps):
+    def _make_modules(self, feat_size, latent_sizes, neighborhood_sizes,
+                      combine_hidden, target_size, neighbors, timesteps,
+                      target_type):
         self.space_convs = nn.ModuleList()
         self.time_convs = nn.ModuleList()
         self.combine_mlps = nn.ModuleList()
@@ -136,13 +140,15 @@ class TemporalGraphConv(nn.Module):
         for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
             # Space neighborhood
             args = default_args.copy()
-            args.update({'in_size': in_size, 'out_size': n_sz, 'rel_size': self.pos_dim,
+            args.update({'in_size': in_size, 'out_size': n_sz,
+                         'rel_size': self.pos_dim,
                          'neighbor_count': neighbors})
             pc = graphconv.GraphConv(**args)
             self.space_convs.append(pc)
             # Time neighborhood
             args = default_args.copy()
-            args.update({'in_size': in_size+n_sz, 'out_size': n_sz, 'rel_size': self.time_encoder.out_dim,
+            args.update({'in_size': in_size+n_sz, 'out_size': n_sz,
+                         'rel_size': self.time_encoder.out_dim,
                          'neighbor_count': timesteps})
             pc = graphconv.GraphConv(**args)
             self.time_convs.append(pc)
@@ -153,15 +159,22 @@ class TemporalGraphConv(nn.Module):
             self.combine_mlps.append(pn)
             in_size = ls
         # Target conv
-        args = {'in_size': ls, 'out_size': target_size, 'rel_size': self.time_encoder.out_dim,
-                'neighbor_count': timesteps}
+        if target_type == 'space':
+            rel_size = self.pos_dim
+            nc = neighbors
+        elif target_type == 'time':
+            rel_size = self.time_encoder.out_dim
+            nc = timesteps
+        args = {'in_size': ls, 'out_size': target_size,
+                'rel_size': rel_size, 'neighbor_count': nc}
         self.target_conv = graphconv.GraphConv(**args)
 
-    def forward(self, data, ids, space_pts, time_pts, query_pts,
+#TODO: Added target_pts
+    def forward(self, data, ids, space_pts, time_pts, target_pts, query_pts,
                 space_dist_fn=None, time_dist_fn=None, target_dist_fn=None,
                 space_dist_data=None, time_dist_data=None, target_dist_data=None):
         out_data = self.encode_input(data, ids, space_pts, time_pts, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data)
-        query_feats = self.encode_queries(out_data, time_pts, query_pts, target_dist_fn, target_dist_data)
+        query_feats = self.encode_queries(out_data, target_pts, query_pts, target_dist_fn, target_dist_data)
         return query_feats
 
     def encode_input(self, data, ids, space_points, time_points, space_dist_fn, time_dist_fn, space_dist_data, time_dist_data):
@@ -180,8 +193,8 @@ class TemporalGraphConv(nn.Module):
             space_in = comb(combined)
         return space_in
 
-    def encode_queries(self, data, ts, query_ts, target_dist_fn, target_dist_data):
-        target_feats = self.target_conv(query_ts, ts, data, target_dist_fn, target_dist_data)
+    def encode_queries(self, data, pts, query_pts, target_dist_fn, target_dist_data):
+        target_feats = self.target_conv(query_pts, pts, data, target_dist_fn, target_dist_data)
         return target_feats
 
 from . import spectral

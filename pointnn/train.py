@@ -65,8 +65,8 @@ class Trainer:
             self.epoch_sched_step = lambda: None
         elif sched == 'lrtest':
             # hack in the desired values
-            min_lr = 1e-8
-            max_lr = 1e0
+            min_lr = min_lr
+            max_lr = init_lr
             def fn(time):
                 mix = time/lr_max_epochs
                 goal = (min_lr**(1-mix))*(max_lr**mix)
@@ -108,6 +108,7 @@ class Trainer:
         self.validation_report(valid_loader, epoch)
         if self.reset_net:
             self.create_checkpoint()
+            self.load_checkpoint()
         while not end_training:
             # Train on batch
             for i, data in enumerate(loader):

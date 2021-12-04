@@ -1,6 +1,6 @@
 {
-  "output_path": "/nfs/hpc/share/merriler/output/t-weather-run2",
-  "problem_args": "problem/weather-default.json",
+  "output_path": "/nfs/hpc/share/merriler/output/t-weather-drop10-2",
+  "problem_args": "problem/weather-drop10.json",
   "entries": [
     {
       "name": "TInt-Small",

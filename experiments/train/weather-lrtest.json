@@ -1,12 +1,12 @@
 {
-  "epochs": 0.5,
+  "epochs": 3,
   "sched": "lrtest",
-  "reset_net": true,
+  "reset_net": false,
   "optim": "adam",
-  "lr": 1e0,
+  "lr": 1e1,
   "min_lr": 1e-8,
   "disable_valid": true,
-  "report_every": 0.005,
-  "valid_every": 0.05,
+  "report_every": 0.05,
+  "valid_every": 0.1,
   "num_workers": 4
 }

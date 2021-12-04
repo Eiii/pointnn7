@@ -173,6 +173,47 @@ class WeatherTPC(_WeatherBase):
                              space_dist_fn, time_dist_fn, target_dist_fn)
         return tgt_feats
 
+class WeatherGC(_WeatherBase):
+    def __init__(self,
+                 combine_hidden=[256, 128, 128],
+                 neighborhood_sizes=[16, 16, 16],
+                 latent_sizes=[32, 64, 64],
+                 target_size=64,
+                 decode_hidden=[64, 64, 64],
+                 neighbors=8,
+                 timesteps=12,
+                 station_dropout=0):
+        super().__init__()
+        self.station_dropout = station_dropout
+        # Setup
+        in_size = HIST_FEAT_SIZE + METADATA_SIZE
+        num_preds = 4
+        self.make_encoders(in_size,
+                           combine_hidden, neighborhood_sizes,
+                           latent_sizes, neighbors, timesteps, target_size)
+        self.make_predictors(target_size, decode_hidden, num_preds)
+
+    def make_encoders(self, feat_size,
+                      combine_hidden, neighborhood_sizes,
+                      latent_sizes, neighbors, timesteps, target_size):
+        pos_dim = 3
+        self.time_encoder = encodings.PeriodEncoding(8, 20)
+        self.tgc = tpc.TemporalGraphConv(feat_size, latent_sizes, neighborhood_sizes,
+                                         combine_hidden, target_size, neighbors, timesteps,
+                                         pos_dim, self.time_encoder, 'space')
+
+    def encode(self, hist, mask, times, station_meta, station_pos,
+               station_idxs, allowed, target_allowed, target_pos):
+        hist_pts = self._get_by_idx(station_idxs, station_pos)
+        hist_meta = self._get_by_idx(station_idxs, station_meta)
+        in_ = torch.cat([hist, hist_meta], dim=2)
+        space_dist_fn = partial(space_dist, mask, station_idxs, times, allowed)
+        time_dist_fn = partial(time_dist, mask, station_idxs, allowed, self.time_encoder.encode)
+        target_dist_fn = partial(target_dist, mask, times, target_allowed)
+        tgt_feats = self.tgc(in_, None, hist_pts, times, hist_pts, target_pos,
+                             space_dist_fn, time_dist_fn, target_dist_fn)
+        return tgt_feats
+
 class WeatherInteraction(_WeatherBase):
     def __init__(self,
                  edge_hidden=[16, 32],

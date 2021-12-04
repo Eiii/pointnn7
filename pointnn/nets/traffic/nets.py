@@ -142,7 +142,7 @@ class TrafficGraphConv(Network):
         self.timesteps = timesteps
         self.tgc = tpc.TemporalGraphConv(feat_size, latent_sizes, neighborhood_sizes,
                                          combine_hidden, target_size, neighbors, timesteps,
-                                         pos_dim, self.time_encoder)
+                                         pos_dim, self.time_encoder, 'time')
         self.make_decoders(target_size, decode_hidden)
 
     def get_args(self, item):
@@ -166,8 +166,10 @@ class TrafficGraphConv(Network):
         query_dist_fn = partial(query, self.time_encoder.encode, tgt_mask, hist_mask,
                                 tgt_id, hist_id)
         hist_data = hist_data.unsqueeze(-1)
-        query_feats = self.tgc(hist_data, hist_id, hist_pos, hist_t, tgt_t,
-                               space_dist_data=space_dist_data, time_dist_data=time_dist_data, target_dist_fn=query_dist_fn)
+        query_feats = self.tgc(hist_data, hist_id, hist_pos, hist_t, hist_t, tgt_t,
+                               space_dist_data=space_dist_data,
+                               time_dist_data=time_dist_data,
+                               target_dist_fn=query_dist_fn)
         pred = self.decode_queries(query_feats)
         return pred
 

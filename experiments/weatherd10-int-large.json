@@ -1,0 +1,18 @@
+{
+  "output_path": "/nfs/hpc/share/merriler/output/t-weather-drop10-2",
+  "problem_args": "problem/weather-drop10.json",
+  "entries": [
+    {
+      "name": "TInt-Large",
+      "train_args": {
+        "BASE": "train/weather-default.json",
+        "batch_size": 8
+      },
+      "net_args": {
+        "BASE": "net/int-large.json",
+        "net_type": "WeatherInteraction"
+      }
+    }
+  ]
+}
+  

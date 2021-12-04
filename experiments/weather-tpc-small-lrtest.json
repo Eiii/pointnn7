@@ -1,11 +1,11 @@
 {
-  "output_path": "/nfs/hpc/share/merriler/output/t-weather-run2",
+  "output_path": "/nfs/hpc/share/merriler/output/t-weather-lrtest3",
   "problem_args": "problem/weather-default.json",
   "entries": [
     {
       "name": "TPC-Small",
       "train_args": {
-        "BASE": "train/weather-default.json",
+        "BASE": "train/weather-lrtest.json",
         "batch_size": 32
       },
       "net_args": {

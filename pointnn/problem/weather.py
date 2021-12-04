@@ -30,22 +30,18 @@ class Weather(Problem):
     def __init__(self, data_path,
                  targets=DEF_TARGETS,
                  time_off=5, hist_count=12, sample_count=1,
-                 seed=1337, HACK_SNIP=None,
-                 voxel_res=None):
+                 drop=None, seed=1337, HACK_SNIP=None):
         self.base_dataset = WeatherDataset(base=data_path,
                                            target_cols=targets,
                                            time_off=time_off,
                                            hist_count=hist_count,
                                            sample_count=sample_count,
                                            seed=seed,
+                                           drop=drop,
                                            HACK_SNIP=HACK_SNIP)
         self.train_dataset = self.base_dataset.train_dataset
         self.valid_dataset = self.base_dataset.test_dataset
-        if voxel_res is None:
-            self.collate_fn = collate
-        else:
-            pass
-            #self.collate_fn = functools.partial(collate_voxelize, voxel_res)
+        self.collate_fn = collate
 
 
     def loss(self, item, pred):

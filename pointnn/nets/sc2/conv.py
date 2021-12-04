@@ -327,7 +327,7 @@ class SC2GC(_SC2Common):
         self.time_encoder = encodings.PeriodEncoding(8, 10)
         self.tgc = tpc.TemporalGraphConv(feat_size, latent_sizes, neighborhood_sizes,
                                          combine_hidden, target_size, neighbors, timesteps,
-                                         pos_dim, self.time_encoder)
+                                         pos_dim, self.time_encoder, 'time')
         self.make_decoders(target_size, decode_hidden)
 
     def encode_targets(self, data, ids, ts, mask, pred_ids, pred_ts):
@@ -342,7 +342,7 @@ class SC2GC(_SC2Common):
         flat_pred_ts = expand_pred_ts.reshape(expand_pred_ts.size(0), -1)
         flat_pred_ids = expand_pred_ids.reshape(expand_pred_ids.size(0), -1)
         target_dist_fn = partial(dists.target, mask, flat_pred_ids, ids, self.time_encoder.encode)
-        out = self.tgc(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
+        out = self.tgc(data, ids, pos, ts, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
         target_feats = out.view(expand_pred_ts.size()+(out.size(-1),))
         return target_feats
 

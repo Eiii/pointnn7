@@ -1,0 +1,18 @@
+{
+  "output_path": "/nfs/hpc/share/merriler/output/t-weather-drop10-2",
+  "problem_args": "problem/weather-drop10.json",
+  "entries": [
+    {
+      "name": "TGC-Large",
+      "train_args": {
+        "BASE": "train/weather-default.json",
+        "batch_size": 4
+      },
+      "net_args": {
+        "BASE": "net/gc-large.json",
+        "net_type": "WeatherGC"
+      }
+    }
+  ]
+}
+  

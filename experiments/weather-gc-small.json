@@ -3,14 +3,14 @@
   "problem_args": "problem/weather-default.json",
   "entries": [
     {
-      "name": "TPC-Med",
+      "name": "TGC-Small",
       "train_args": {
         "BASE": "train/weather-default.json",
-        "batch_size": 20
+        "batch_size": 36
       },
       "net_args": {
-        "BASE": "net/tpc-med.json",
-        "net_type": "WeatherTPC"
+        "BASE": "net/gc-small.json",
+        "net_type": "WeatherGC"
       }
     }
   ]

@@ -1,0 +1,20 @@
+{
+  "output_path": "/nfs/hpc/share/merriler/output/t-weather-drop30",
+  "problem_args": "problem/weather-drop30.json",
+  "entries": [
+    {
+      "name": "TPC-Large",
+      "train_args": {
+        "BASE": "train/weather-default.json",
+        "batch_size": 12,
+        "lr": 6.91e-1,
+        "min_lr": 2.29e-2
+      },
+      "net_args": {
+        "BASE": "net/tpc-large.json",
+        "net_type": "WeatherTPC"
+      }
+    }
+  ]
+}
+  
