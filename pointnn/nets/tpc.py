@@ -91,6 +91,7 @@ class TemporalPointConv(nn.Module):
         for space, time, comb in \
                 zip(self.space_convs, self.time_convs, self.combine_mlps):
             # Calculate spatial convolution
+            breakpoint()
             space_nei = space(space_points, space_points, space_in, space_dist_fn, space_dist_data)
             # Combine input+output feats of space conv as input for time conv
             time_in = torch.cat([space_in, space_nei], dim=2)

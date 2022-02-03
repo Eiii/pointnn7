@@ -2,6 +2,7 @@ from . import nets
 
 import json
 from pathlib import Path
+from uuid import uuid4
 
 def read_experiment_json(path):
     """Translate an experiment JSON specification to an executable list of
@@ -9,26 +10,44 @@ def read_experiment_json(path):
     with open(path, 'rb') as fd:
         desc = json.load(fd)
     run_args = []
-    prob_args = load_dict(path, desc.get('problem_args', dict()))
+    context = {}
+    prob_args = load_dict(context, path, desc.get('problem_args', dict()))
     for entry in desc['entries']:
-        net_args = load_dict(path, entry.get('net_args', dict()))
-        train_args = load_dict(path, entry.get('train_args', dict()))
+        net_args = load_dict(context, path, entry.get('net_args', dict()))
+        train_args = load_dict(context, path, entry.get('train_args', dict()))
         print(f"Experiment {entry['name']}")
         print(f'Train args: {train_args}')
         print(f'Net args: {net_args}')
         # Create network w/ given arguments
         net = nets.make_net(net_args)
-        args = {'name': entry['name'],
+        name = entry['name']
+        out_dir = desc['output_path']
+        uid = uuid4().hex
+        args = {'name': name,
                 'net': net,
                 'problem_args': prob_args,
                 'train_args': train_args,
                 'epochs': train_args['epochs'],
-                'out_dir': desc['output_path']}
+                'out_dir': out_dir,
+                'uid': uid}
         run_args += [args]
+        context['[PREV_OUTPUT]'] = str(output_path(out_dir, name, uid))
     return run_args
 
 
-def load_dict(path, val):
+# TODO: 'context' - this should be a object
+def load_dict(context, path, val):
+    d = load_base(path, val)
+    updates = {}
+    for key, val in d.items():
+        for c in context:
+            if val == c:
+                updates[key] = context[val]
+    d.update(updates)
+    return d
+
+
+def load_base(path, val):
     base_key = 'BASE'
     base_path = Path(path).parent
 
@@ -53,3 +72,7 @@ def load_dict(path, val):
             return val
     else:
         raise ValueError('Unexpected config dictionary value')
+
+
+def output_path(out_dir, name, uid):
+    return (Path(out_dir) / f'{name}:{uid}').with_suffix('.pkl')

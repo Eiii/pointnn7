@@ -1,4 +1,5 @@
 from . import problem
+from . import experiment
 from .measure import Measure
 
 import pickle
@@ -9,7 +10,6 @@ from torch.utils.data import DataLoader
 
 from pathlib import Path
 from time import time
-from uuid import uuid4
 
 
 class Trainer:
@@ -200,14 +200,13 @@ class Trainer:
         return loss
 
     def dump_results(self, time=None):
-        o = self.out_path.with_suffix('.pkl')
         state_dict = self.net.cpu().state_dict()
         data = {'measure': self.measure,
                 'net_type': type(self.net).__name__,
                 'net_args': self.net.args,
                 'state_dict': state_dict,
                 'batch_time': time}
-        with o.open('wb') as fd:
+        with self.out_path.open('wb') as fd:
             pickle.dump(data, fd)
         self.net.cuda()
 
@@ -223,7 +222,7 @@ def seq_to_cuda(d):
     def to_cuda(x):
         return x.cuda() if x is not None else None
     if isinstance(d, dict):
-        return {k:to_cuda(v) for k,v in d.items()}
+        return {k: to_cuda(v) for k, v in d.items()}
     elif isinstance(d, list):
         return [to_cuda(v) for v in d]
 
@@ -233,14 +232,14 @@ def train_single(name,
                  problem_args,
                  train_args,
                  epochs,
-                 out_dir):
+                 out_dir,
+                 uid):
     """Main 'entry point' to train a specified network on a specified problem
     """
     prob = problem.make_problem(problem_args)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    uid = uuid4().hex
-    out_path = out_dir / f'{name}:{uid}'
+    out_path = experiment.output_path(out_dir, name, uid)
     print(out_path)
     trainer = Trainer(name, net, prob, out_path, **train_args)
     trainer.train()

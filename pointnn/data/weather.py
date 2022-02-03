@@ -485,7 +485,7 @@ def get_latlons(ds):
     print(meta.max())
 
 if __name__ == '__main__':
-    ds = WeatherDataset('./data/weather')
+    ds = WeatherDataset('./data/weather', HACK_SNIP=1000)
     train = ds.train_dataset
     test = ds.test_dataset
     print(len(train), len(test))

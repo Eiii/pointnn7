@@ -1,78 +1,121 @@
 import argparse
+import json
+from math import ceil
+from sklearn.metrics import f1_score
+import numpy as np
 
 from . import common
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import numpy as np
+
+
+def get_loss(tl):
+    return [t['loss'] for t in tl]
 
 
 def get_lrs(tl):
     return [t['lr'] for t in tl]
 
 
-def get_wds(tl):
-    return [1-t['epoch']/0.5 for t in tl]
-
-
 def plot_lr_curves(measures, out_path, skip_first, normalize):
+    thresh_data = {}
     size = (8, 5)
     fig, ax = plt.subplots(figsize=size, dpi=200)
     ax.set_xlabel('Learning Rate')
     ax.set_ylabel('Loss Change')
     ax.set_xscale('log')
-    ax.set_yscale('log')
+    #ax.set_yscale('log')
     all_names = list({m.name for m in measures if m.name is not None})
     print(f'Plotting {all_names}...')
     for name in all_names:
-        print(f'Plotting {name}')
+        print(f'{name}:')
         # LR plot
         tls = [m._training_loss for m in measures if m.name == name]
         xs = ys = None
-        for tl in tls:
-            x = get_lrs(tl)
-            y = [t['loss'] for t in tl]
-            y_array = np.array([y])
-            if len(x) == 0:
-                continue
-            xs = np.vstack((xs, x)) if xs is not None else np.array([x])
-            ys = np.vstack((ys, y)) if ys is not None else y_array
-        #assert (xs == xs[0]).all()
+        l_xs = [get_lrs(tl) for tl in tls]
+        min_xl = min(len(x) for x in l_xs)
+        max_xl = min(len(x) for x in l_xs)
+        if max_xl - min_xl > 1:
+            print('Misaligned training data')
+        l_xs = [xs[:min_xl] for xs in l_xs]
+        l_ys = [get_loss(tl)[:min_xl] for tl in tls]
+        xs = np.vstack(l_xs)
+        ys = np.vstack(l_ys)
         xs = xs[0]
         ys = np.mean(ys, axis=0)
         if skip_first:
             xs = xs[1:]
             ys = ys[1:]
         if normalize:
-            ys = ys / ys[0]
+            plot_ys = ys / ys[0]
             max_loss = 2
-            ys[ys>max_loss] = max_loss
+            plot_ys[plot_ys>max_loss] = max_loss
             #ys = ys - ys[0]
-        calc_thresh(xs, ys)
-        ax.plot(xs, ys, label=name)
+        else:
+            plot_ys = ys
+        lr_thresh = calc_thresh(xs, ys)
+        thresh_data[name] = lr_thresh
+        ax.plot(xs, plot_ys, label=name)
     if normalize:
         ax.axhline(1, color='k')
     ax.legend()
+    return thresh_data
 
 
-def calc_thresh(xs, ys, amt=0.05):
-    baseline = ys[0]
-    best = ys.min()
-    thresh = baseline + (best-baseline)*amt
-    good_xs = xs[ys < thresh]
-    min_good = float(good_xs.min())
-    bad_xs = xs[(ys > baseline) * (xs > min_good)]
-    min_bad = float(bad_xs.min())
-    print(f'{min_good:.2e} {min_bad:.2e}')
+def calc_thresh(xs, ys):
+    fact = 4
+    thresh = 1.2
+    lr_floor = 1e-8
+    min_f1 = 0.75
+    seq_len = len(xs)
+    early_idxs = ceil(seq_len/fact)
+    early_losses = ys[:early_idxs]
+    min_loss = early_losses.min()
+    max_loss = early_losses.max()
+    baseline_loss = early_losses[0]
+    min_thresh = baseline_loss + (min_loss - baseline_loss)
+    max_thresh = baseline_loss + (max_loss - baseline_loss)*thresh
+
+    over_max = ys>max_thresh
+    under_min = ys<min_thresh
+
+    idx_scores = [(score_max_thresh(i, over_max), i) for i in range(seq_len)]
+    _, max_thresh_idx = max(idx_scores)
+    max_lr = xs[max_thresh_idx-1]
+
+    idx_scores = [(score_min_thresh(i, max_thresh_idx, under_min), i) for i in range(seq_len)]
+    min_thresh_score, min_thresh_idx = max(idx_scores)
+    use_min = min_thresh_score > min_f1
+    min_lr = xs[min_thresh_idx] if use_min else lr_floor
+    print(f"{min_thresh_score:.2} {min_lr:.2e} {max_lr:.2e}")
+    return min_lr, max_lr
 
 
-def make_plots(folder, out_path, filter, skip_first, normalize):
+def score_max_thresh(thresh_idx, goal):
+    model = np.zeros_like(goal)
+    model[thresh_idx:] = True
+    score = f1_score(goal, model, zero_division=0)
+    return score
+
+
+def score_min_thresh(thresh_idx, max_thresh_idx, goal):
+    goal = goal[:max_thresh_idx]
+    model = np.zeros_like(goal)
+    model[thresh_idx:] = True
+    score = f1_score(goal, model, zero_division=0)
+    return score
+
+
+def make_plots(folder, out_path, lr_out, filter, skip_first, normalize):
     measures = [r['measure'] for r in common.load_any(folder)]
     if filter:
         filters = filter.split(',')
         measures = [m for m in measures if m.name in filters]
-    plot_lr_curves(measures, out_path, skip_first, normalize)
+    thresh_data = plot_lr_curves(measures, out_path, skip_first, normalize)
+    with open(lr_out, 'w') as fd:
+        json.dump(thresh_data, fd)
     plt.tight_layout()
     plt.savefig(out_path)
 
@@ -80,7 +123,8 @@ def make_plots(folder, out_path, filter, skip_first, normalize):
 def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('folder')
-    parser.add_argument('output', nargs='?', default='out.png')
+    parser.add_argument('--output', nargs='?', default='out.png')
+    parser.add_argument('--lroutput', nargs='?', default='lrs.json')
     parser.add_argument('--filter', default=None)
     parser.add_argument('--skip-first', action='store_true')
     parser.add_argument('--normalize', action='store_true')
@@ -89,5 +133,5 @@ def make_parser():
 
 if __name__ == '__main__':
     args = make_parser().parse_args()
-    make_plots(args.folder, args.output, args.filter, args.skip_first, args.normalize)
+    make_plots(args.folder, args.output, args.lroutput, args.filter, args.skip_first, args.normalize)
 

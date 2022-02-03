@@ -49,21 +49,26 @@ def sc2_frame_loss(item, pred, reduction='sum'):
                              reduction='none')
     # Figure out which parts of the loss we should ignore/consider
     unit_pred_loss = torch.stack((p_loss, h_loss, s_loss, o_loss), dim=-1)
+    alive_mask = target['alive'].bool()
+    unit_pred_loss_masked = unit_pred_loss * alive_mask
+    valid_mask = item['pred_ts_mask'].unsqueeze(-1) * item['pred_ids_mask'].unsqueeze(-2)
     if reduction == 'sum':
-        alive_mask = target['alive'].bool().squeeze(-1)
-        unit_pred_loss = unit_pred_loss.sum(dim=-1) * alive_mask
-        total_loss = unit_pred_loss+a_loss
-        total_loss *= item['pred_ts_mask'].unsqueeze(-1) * item['pred_ids_mask'].unsqueeze(-2)
+        total_loss = unit_pred_loss_masked.sum(dim=-1) + a_loss
+        total_loss *= valid_mask
         return total_loss
     elif reduction == 'none':
-        alive_mask = target['alive'].bool()
-        valid_mask = item['pred_ts_mask'].unsqueeze(-1) * item['pred_ids_mask'].unsqueeze(-2)
         alive_losses = torch.masked_select(a_loss, valid_mask)
-        lss = []
-        for i in range(unit_pred_loss.size(-1)):
-            tmp_mask = valid_mask.unsqueeze(-1).expand(-1, -1, -1, unit_pred_loss.size(-1)).contiguous()
-            tmp_sel = torch.zeros(1, 1, 1, unit_pred_loss.size(-1), dtype=torch.bool, device=tmp_mask.device)
-            tmp_sel[:, :, :, i] = True
-            tmp_mask *= tmp_sel
-            lss.append(torch.masked_select(unit_pred_loss, tmp_mask))
-        return torch.stack(lss+[alive_losses], dim=-1)
+        unit_loss = unit_pred_loss_masked[valid_mask]
+        out = torch.cat([unit_loss, alive_losses.unsqueeze(-1)], dim=-1)
+        return out
+
+def get_pred_ts(item):
+    valid_mask = item['pred_ts_mask'].unsqueeze(-1) * item['pred_ids_mask'].unsqueeze(-2)
+    exp_ts = item['pred_ts'].unsqueeze(-1).expand(-1, -1, item['pred_ids_mask'].size(-1))
+    flat_ts = torch.masked_select(exp_ts, valid_mask)
+    return flat_ts
+
+def get_alive(item):
+    target = parse_frame(item['pred_data'])
+    valid_mask = item['pred_ts_mask'].unsqueeze(-1) * item['pred_ids_mask'].unsqueeze(-2)
+    return target['alive'][valid_mask].squeeze(-1)

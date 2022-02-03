@@ -100,6 +100,7 @@ class PointConv(nn.Module):
         return final
 
     def calc_weights(self, feats, neighbor_feats, neighbor_rel):
+        breakpoint()
         m = self.weight_conv(neighbor_rel)
         if self.attn_heads:
             attn = self.calc_attn(feats, neighbor_feats)
