@@ -46,6 +46,7 @@ def plot_lr_curves(measures, out_path, skip_first, normalize):
         xs = np.vstack(l_xs)
         ys = np.vstack(l_ys)
         xs = xs[0]
+        print(f'Steps: {len(xs)}')
         ys = np.mean(ys, axis=0)
         if skip_first:
             xs = xs[1:]
