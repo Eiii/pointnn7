@@ -50,7 +50,7 @@ def plot_connect(ax, meta, adj, dist):
 
 def anim(base):
     all_fn = lambda _: True
-    ds = METRDataset(base, all_fn)
+    ds = METRDataset(base, all_fn, True, False)
     all_arts = []
     fig, ax = plt.subplots(figsize=(10,10), dpi=100)
     cnorm = colors.Normalize(vmin=0, vmax=70)
@@ -68,15 +68,15 @@ def anim(base):
 
 def single(base):
     all_fn = lambda _: True
-    ds = METRDataset(base, all_fn)
+    ds = METRDataset(base, all_fn, True, False)
     fig, ax = plt.subplots(figsize=(10,10), dpi=100)
     i = 100
     row = ds.raw_df.loc[i]
     time = ds.raw_times.loc[i]
     plot_sensor_pos(ax, ds.meta_df)
-    plot_connect(ax, ds.meta_df, ds.sensor_connected, ds.sensor_cost)
-    ax.set_xlim([-6000, -5000])
-    ax.set_ylim([2500, 3500])
+    #plot_connect(ax, ds.meta_df, ds.sensor_connected, ds.sensor_cost)
+    ax.set_xlim([-25000, 15000])
+    ax.set_ylim([-20000, 20000])
     plt.show(block=True)
     fig.savefig('out.png')
 
