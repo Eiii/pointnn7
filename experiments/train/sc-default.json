@@ -1,7 +1,7 @@
 {
-  "epochs": 1.5,
+  "epochs": 4,
   "sched": "cos",
-  "period": 23,
+  "period": 60,
   "optim": "adam",
   "lr": 0.01,
   "report_every": 0.01,

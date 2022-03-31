@@ -1,8 +1,10 @@
 import argparse
 import json
+import numpy as np
+
+from sys import argv
 from math import ceil
 from sklearn.metrics import f1_score
-import numpy as np
 
 from . import common
 
@@ -120,18 +122,61 @@ def make_plots(folder, out_path, lr_out, filter, skip_first, normalize):
     plt.savefig(out_path)
 
 
+def set_lrs(lrs, files, dry):
+    with open(lrs, 'r') as fd:
+        lrs = json.load(fd)
+    for exp_file in files:
+        if 'lrtest' in exp_file:
+            continue
+        with open(exp_file, 'r') as fd:
+            exp = json.load(fd)
+        modified = False
+        for entry in exp['entries']:
+            name = entry['name']
+            new_lrs = lrs.get(name, None)
+            if new_lrs is None:
+                print(f'No LRs for {name}')
+                continue
+            req_keys = ['lr', 'min_lr']
+            train_args = entry['train_args']
+            if all(k in train_args for k in req_keys):
+                old_lrs = [train_args[k] for k in req_keys]
+                print(f'Updating {name}: {old_lrs} {new_lrs}')
+            else:
+                print(f'Updating {name}: {new_lrs}')
+            modified = True
+            train_args['min_lr'], train_args['lr'] = new_lrs
+        if modified:
+            print(f'Updating {exp_file}')
+            if not dry:
+                with open(exp_file, 'w') as fd:
+                    json.dump(exp, fd, indent=4)
+
+
 def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('folder')
-    parser.add_argument('--output', nargs='?', default='out.png')
-    parser.add_argument('--lroutput', nargs='?', default='lrs.json')
+    parser.add_argument('--output', default='out.png')
+    parser.add_argument('--lroutput', default='lrs.json')
     parser.add_argument('--filter', default=None)
     parser.add_argument('--skip-first', action='store_true')
     parser.add_argument('--normalize', action='store_true')
     return parser
 
 
+def make_apply_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lrs')
+    parser.add_argument('--dryrun', action='store_true')
+    parser.add_argument('experiments', nargs='+')
+    return parser
+
+
 if __name__ == '__main__':
-    args = make_parser().parse_args()
-    make_plots(args.folder, args.output, args.lroutput, args.filter, args.skip_first, args.normalize)
+    if argv[1] == 'apply':
+        args = make_apply_parser().parse_args(argv[2:])
+        set_lrs(args.lrs, args.experiments, args.dryrun)
+    else:
+        args = make_parser().parse_args()
+        make_plots(args.folder, args.output, args.lroutput, args.filter, args.skip_first, args.normalize)
 
