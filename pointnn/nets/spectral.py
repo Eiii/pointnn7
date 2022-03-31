@@ -18,7 +18,6 @@ class Spectral(nn.Module):
     def forward(self, feats, pos, times, ids, eig):
         # feats - count x F
         # square_feats - times x nodes x F
-        breakpoint()
         square_feats = get_square_feats(feats, pos, times, ids)
         out_feats = self.transform(square_feats, eig)
         out_feats = out_feats.contiguous()

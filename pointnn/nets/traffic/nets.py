@@ -66,7 +66,6 @@ class TrafficTPC(_TrafficCommon):
 
     def forward(self, hist_t, hist_id, hist_pos, hist_data, id_dist, id_adj, hist_mask,
                 tgt_t, tgt_id, tgt_mask):
-        breakpoint()
         space_dist_data = space_neighbors(self.neighbors, hist_t, hist_id, hist_pos, hist_mask, id_dist, id_adj)
         time_dist_data = time_neighbors(self.timesteps, 5, hist_t, hist_id, hist_mask)
         query_dist_fn = partial(query, self.time_encoder.encode, tgt_mask, hist_mask,
