@@ -113,6 +113,7 @@ def score_min_thresh(thresh_idx, max_thresh_idx, goal):
 
 def make_plots(folder, out_path, lr_out, filter, skip_first, normalize):
     measures = [r['measure'] for r in common.load_any(folder)]
+    measures = [m for m in measures if not m.name.startswith('Pre')]
     if filter:
         filters = filter.split(',')
         measures = [m for m in measures if m.name in filters]
