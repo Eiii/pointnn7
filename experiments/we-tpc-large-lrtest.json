@@ -1,18 +1,17 @@
 {
-  "output_path": "/nfs/hpc/share/merriler/output/t-weather-lrtest3",
-  "problem_args": "problem/weather-default.json",
-  "entries": [
-    {
-      "name": "TPC-Large",
-      "train_args": {
-        "BASE": "train/weather-lrtest.json",
-        "batch_size": 12
-      },
-      "net_args": {
-        "BASE": "net/tpc-large.json",
-        "net_type": "WeatherTPC"
-      }
-    }
-  ]
+    "output_path": "/nfs/hpc/share/merriler/output/t-weather-lrtest3",
+    "problem_args": "problem/weather-default.json",
+    "entries": [
+        {
+            "name": "TPC-Large",
+            "train_args": {
+                "BASE": "train/weather-lrtest.json",
+                "batch_size": 12
+            },
+            "net_args": {
+                "BASE": "net/tpc-large.json",
+                "net_type": "WeatherTPC"
+            }
+        }
+    ]
 }
-  
