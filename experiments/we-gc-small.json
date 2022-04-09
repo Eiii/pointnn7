@@ -1,5 +1,5 @@
 {
-  "output_path": "/nfs/hpc/share/merriler/output/t-weather-run2",
+  "output_path": "/nfs/hpc/share/merriler/output/t-we-final",
   "problem_args": "problem/weather-default.json",
   "entries": [
     {
