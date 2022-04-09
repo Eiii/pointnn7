@@ -6,7 +6,7 @@
       "name": "TGC-Small",
       "train_args": {
         "BASE": "train/weather-default.json",
-        "batch_size": 36
+        "batch_size": 10
       },
       "net_args": {
         "BASE": "net/gc-small.json",
