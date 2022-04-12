@@ -41,7 +41,8 @@ class TrafficTPC(_TrafficCommon):
                  final_hidden = [2**6, 2**6],
                  decode_hidden = [2**6, 2**6, 2**6],
                  neighbors=8, timesteps=12,
-                 mean_delta=False):
+                 mean_delta=False,
+                 heads=0):
         super().__init__()
         feat_size = 1
         pos_dim = 2+1
@@ -52,7 +53,7 @@ class TrafficTPC(_TrafficCommon):
         self.tpc = tpc.TemporalPointConv(feat_size, weight_hidden, c_mid, final_hidden,
                                          latent_sizes, neighborhood_sizes, neighbors,
                                          timesteps, timesteps, combine_hidden,
-                                         target_size, pos_dim, self.time_encoder)
+                                         target_size, pos_dim, self.time_encoder, heads)
         self.make_decoders(target_size, decode_hidden)
 
     def make_decoders(self, in_size, decode_hidden):

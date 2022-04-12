@@ -21,6 +21,7 @@ class TemporalPointConv(nn.Module):
                  target_size,
                  pos_dim,
                  time_encoder,
+                 attn_heads,
                  query_type='time'
                  ):
         super().__init__()
@@ -30,18 +31,17 @@ class TemporalPointConv(nn.Module):
         self._make_modules(feat_size, weight_hidden, c_mid, final_hidden,
                            latent_sizes, neighborhood_sizes,
                            space_neighbors, time_neighbors, target_neighbors,
-                           combine_hidden, target_size)
+                           combine_hidden, target_size, attn_heads)
 
     def _make_modules(self, feat_size, weight_hidden, c_mid, final_hidden,
                       latent_sizes, neighborhood_sizes, space_neighbors, time_neighbors,
-                      target_neighbors, combine_hidden, target_size):
+                      target_neighbors, combine_hidden, target_size, attn_heads):
         self.space_convs = nn.ModuleList()
         self.time_convs = nn.ModuleList()
         self.combine_mlps = nn.ModuleList()
         in_size = feat_size
-        neighbor_attn = 0
         default_args = {'weight_hidden': weight_hidden, 'c_mid': c_mid,
-                        'final_hidden': final_hidden, 'attn_heads': neighbor_attn}
+                        'final_hidden': final_hidden, 'attn_heads': attn_heads}
         assert len(latent_sizes) == len(neighborhood_sizes)
         for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
             # Space neighborhood

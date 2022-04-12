@@ -139,14 +139,19 @@ class PointConvAttn(nn.Module):
                                        hidden_sizes=list(final_hidden),
                                        reduction='none')
 
-    def forward(self, keys, points, feats, orig_feats, attn_conv, dist_fn=None):
-        neighbor_idx_info = _closest_pts_to_keys(keys, points, self.neighbor_count, dist_fn or self.dist_fn)
-        neighbor_rel, neighbor_feats, neighbor_valid = _gather_neighbor_info(feats, *neighbor_idx_info)
-        _, neighbor_orig, _ = _gather_neighbor_info(orig_feats, *neighbor_idx_info)
+    def forward(self, keys, points, feats, attn_conv, dist_fn=None, dist_data=None):
+        if dist_data is not None:
+            n_idxs, neighbor_rel, neighbor_valid = dist_data
+            bb = torch.arange(n_idxs.size(0), device=n_idxs.device).view(-1, 1, 1)
+            neighbor_feats = feats[bb, n_idxs]
+        else:
+            neighbor_rel, neighbor_feats, neighbor_valid = \
+                calc_neighbor_info(keys, points, feats, self.neighbor_count,
+                                dist_fn or self.dist_fn)
         # These are still grouped in an extra dimension by keys
         # Since each key shares the same convolution, the extra dimension
         # can just be flattened and reconstructed later.
-        m = self.calc_weights(orig_feats, neighbor_orig, neighbor_rel, attn_conv)
+        m = self.calc_weights(feats, neighbor_feats, neighbor_rel)
         # Apply mask
         neighbor_valid = neighbor_valid.unsqueeze(-1)
         masked_m = m * neighbor_valid

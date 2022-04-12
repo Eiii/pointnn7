@@ -165,7 +165,7 @@ class SC2TPC(_SC2Common):
                  c_mid,
                  final_hidden,
                  decode_hidden,
-                 neighbors, timesteps, neighbor_attn=0):
+                 neighbors, timesteps, heads=0):
         super().__init__()
         feat_size = 16
         pos_dim = 2
@@ -173,17 +173,17 @@ class SC2TPC(_SC2Common):
         self.make_tpc(feat_size, weight_hidden, c_mid, final_hidden,
                       latent_sizes, neighborhood_sizes, neighbors,
                       timesteps, combine_hidden, target_size, pos_dim,
-                      self.time_encoder)
+                      self.time_encoder, heads)
         self.make_decoders(target_size, decode_hidden)
 
     def make_tpc(self, feat_size, weight_hidden, c_mid, final_hidden,
                  latent_sizes, neighborhood_sizes, neighbors,
                  timesteps, combine_hidden, target_size, pos_dim,
-                 time_encoder):
+                 time_encoder, heads):
         self.tpc = tpc.TemporalPointConv(feat_size, weight_hidden, c_mid, final_hidden,
                                          latent_sizes, neighborhood_sizes, neighbors,
                                          timesteps, timesteps, combine_hidden,
-                                         target_size, pos_dim, time_encoder)
+                                         target_size, pos_dim, time_encoder, heads)
 
     def run_tpc(self, data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn):
         out = self.tpc(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
@@ -214,7 +214,7 @@ class SC2Interaction(_SC2Common):
                  combine_hidden,
                  edge_hidden,
                  decode_hidden,
-                 neighbors, timesteps, neighbor_attn=0):
+                 neighbors, timesteps):
         super().__init__()
         feat_size = 16
         pos_dim = 2
@@ -255,40 +255,6 @@ class SC2Interaction(_SC2Common):
         out = self.run_tpc(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)
         target_feats = out.view(expand_pred_ts.size()+(out.size(-1),))
         return target_feats
-
-
-from .. import spectral
-class SC2Spectral(SC2TPC):
-    def __init__(self,
-                 neighborhood_sizes,
-                 latent_sizes,
-                 target_size,
-                 combine_hidden,
-                 weight_hidden,
-                 c_mid,
-                 final_hidden,
-                 decode_hidden,
-                 neighbors, timesteps, neighbor_attn=0, eig_dims=25, lap_type='comb'):
-        self.eig_dims = eig_dims
-        self.lap_type = lap_type
-        super().__init__(neighborhood_sizes, latent_sizes, target_size,
-                         combine_hidden, weight_hidden, c_mid, final_hidden,
-                         decode_hidden, neighbors, timesteps, neighbor_attn)
-
-    def run_tpc(self, data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn):
-        eig = None
-        out = self.tpc(data, ids, pos, ts, flat_pred_ts, eig,
-                       space_dist_fn, time_dist_fn, target_dist_fn)
-        return out
-
-    def make_tpc(self, feat_size, weight_hidden, c_mid, final_hidden,
-                 latent_sizes, neighborhood_sizes, neighbors,
-                 timesteps, combine_hidden, target_size, pos_dim,
-                 time_encoder):
-        self.tpc = tpc.TemporalSpectral(feat_size, weight_hidden, c_mid, final_hidden,
-                                        latent_sizes, neighborhood_sizes, neighbors,
-                                        timesteps, combine_hidden, target_size, pos_dim,
-                                        time_encoder, self.eig_dims, self.lap_type)
 
 
 class SC2Blank(SC2TPC):
@@ -346,110 +312,6 @@ class SC2GC(_SC2Common):
         target_feats = out.view(expand_pred_ts.size()+(out.size(-1),))
         return target_feats
 
-
-class SC2TPCAttn(_SC2Common):
-    def __init__(self,
-                 neighborhood_sizes,
-                 latent_sizes,
-                 target_size,
-                 combine_hidden,
-                 weight_hidden,
-                 c_mid,
-                 final_hidden,
-                 decode_hidden,
-                 neighbors, timesteps,
-                 heads):
-        super().__init__()
-        feat_size = 16
-        self.make_encoders(feat_size, neighborhood_sizes, latent_sizes, target_size,
-                           neighbors, combine_hidden, timesteps, weight_hidden,
-                           c_mid, final_hidden, heads)
-
-        self.make_decoders(target_size, decode_hidden)
-
-    def make_encoders(self, feat_size, neighborhood_sizes, latent_sizes, target_size,
-                      neighbors, combine_hidden, timesteps, weight_hidden,
-                      c_mid, final_hidden, heads):
-        self.time_encoder = encodings.PeriodEncoding(8, 10)
-        self.space_convs = nn.ModuleList()
-        self.time_convs = nn.ModuleList()
-        self.combine_mlps = nn.ModuleList()
-        self.space_attn = SetTransform(in_size=2*feat_size, out_size=heads,
-                                       hidden_sizes=list(weight_hidden),
-                                       reduction='none')
-        self.time_attn = SetTransform(in_size=2*feat_size, out_size=heads,
-                                      hidden_sizes=list(weight_hidden),
-                                      reduction='none')
-        in_size = feat_size
-        default_args = {'weight_hidden': weight_hidden, 'c_mid': c_mid,
-                        'final_hidden': final_hidden, 'heads': heads}
-        assert len(latent_sizes) == len(neighborhood_sizes)
-        for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
-            # Space neighborhood
-            args = default_args.copy()
-            args.update({'neighbors': neighbors, 'c_in': in_size, 'c_out': n_sz,
-                         'dim': 2})
-            pc = pointconv.PointConvAttn(**args)
-            self.space_convs.append(pc)
-            # Time neighborhood
-            args = default_args.copy()
-            args.update({'neighbors': timesteps, 'c_in': in_size+n_sz,
-                         'c_out': n_sz, 'dim': self.time_encoder.out_dim})
-            pc = pointconv.PointConvAttn(**args)
-            self.time_convs.append(pc)
-            # MLP to next layer
-            mlp_args = {'in_size': in_size+2*n_sz, 'out_size': ls,
-                        'hidden_sizes': combine_hidden, 'reduction': 'none'}
-            pn = SetTransform(**mlp_args)
-            self.combine_mlps.append(pn)
-            in_size = ls
-        # Target conv
-        args = default_args.copy()
-        args = {'weight_hidden': [x*2 for x in weight_hidden],
-                'c_mid': c_mid*2,
-                'final_hidden': [x*2 for x in final_hidden],
-                'neighbors': timesteps, 'c_in': ls, 'c_out': target_size,
-                'dim': self.time_encoder.out_dim}
-        self.target_conv = pointconv.PointConv(**args)
-
-    def encode(self, data, ids, ts, mask):
-        pf = parse_frame(data)
-        # Add time to unit positions
-        pos = pf['pos']
-        # Initial setup to execute network
-        # Spatial convolution operates on XYZ+T of units
-        space_points = pos
-        space_dist_fn = partial(dists.space, mask, ts)
-        # Time convolution
-        time_points = ts
-        time_dist_fn = partial(dists.time, mask, ids, self.time_encoder.encode)
-        orig_feats = data
-        space_in = data
-        for space, time, comb in \
-                zip(self.space_convs, self.time_convs, self.combine_mlps):
-            # Calculate spatial convolution
-            space_nei = space(space_points, space_points, space_in, orig_feats, self.space_attn, space_dist_fn)
-            # Combine input+output feats of space conv as input for time conv
-            time_in = torch.cat([space_in, space_nei], dim=2)
-            # Run time convolution
-            time_nei = time(time_points, time_points, time_in, orig_feats, self.time_attn, time_dist_fn)
-            combined = torch.cat([space_in, space_nei, time_nei], dim=2)
-            # Construct input to next space conv by appending time conv
-            # output
-            space_in = comb(combined)
-        return space_in
-
-    def calc_targets(self, data, ids, ts, mask, pred_ids, pred_ts):
-        expand_pred_ts = pred_ts.unsqueeze(-1)
-        expand_pred_ids = pred_ids.unsqueeze(-2)
-        expand_pred_ts, expand_pred_ids = torch.broadcast_tensors(expand_pred_ts, expand_pred_ids)
-        flat_pred_ts = expand_pred_ts.reshape(expand_pred_ts.size(0), -1)
-        flat_pred_ids = expand_pred_ids.reshape(expand_pred_ids.size(0), -1)
-        target_dist_fn = partial(dists.target, mask, flat_pred_ids, ids, self.time_encoder.encode)
-        target_feats = self.target_conv(flat_pred_ts, ts, data, target_dist_fn)
-        # Restore dimensions
-        target_feats = target_feats.view(expand_pred_ts.size()+(target_feats.size(-1),))
-        return target_feats
 
 """
 class SC2Mink(_SC2Common):

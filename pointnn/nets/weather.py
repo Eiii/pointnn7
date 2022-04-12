@@ -140,7 +140,8 @@ class WeatherTPC(_WeatherBase):
                  decode_hidden=[64, 64, 64],
                  neighbors=8,
                  timesteps=12,
-                 station_dropout=0):
+                 station_dropout=0,
+                 heads=0):
         super().__init__()
         self.station_dropout = station_dropout
         # Setup
@@ -148,18 +149,18 @@ class WeatherTPC(_WeatherBase):
         num_preds = 4
         self.make_encoders(in_size, weight_hidden, c_mid, final_hidden,
                            combine_hidden, neighborhood_sizes,
-                           latent_sizes, neighbors, timesteps, target_size)
+                           latent_sizes, neighbors, timesteps, target_size, heads)
         self.make_predictors(target_size, decode_hidden, num_preds)
 
     def make_encoders(self, feat_size, weight_hidden, c_mid, final_hidden,
                       combine_hidden, neighborhood_sizes,
-                      latent_sizes, neighbors, timesteps, target_size):
+                      latent_sizes, neighbors, timesteps, target_size, heads):
         pos_dim = 3
         self.time_encoder = encodings.PeriodEncoding(8, 20)
         self.tpc = tpc.TemporalPointConv(feat_size, weight_hidden, c_mid,
                                          final_hidden, latent_sizes, neighborhood_sizes,
                                          neighbors, timesteps, neighbors, combine_hidden,
-                                         target_size, pos_dim, self.time_encoder, 'space')
+                                         target_size, pos_dim, self.time_encoder, heads, 'space')
 
     def encode(self, hist, mask, times, station_meta, station_pos,
                station_idxs, allowed, target_allowed, target_pos):
