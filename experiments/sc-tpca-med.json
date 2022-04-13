@@ -7,8 +7,8 @@
             "train_args": {
                 "BASE": "train/sc-default.json",
                 "batch_size": 16,
-                "lr": 0.001,
-                "min_lr": 1e-8
+                "lr": 0.003978755975011979,
+                "min_lr": 2.511260130043079e-06
             },
             "net_args": {
                 "BASE": "net/tpca-med.json",
