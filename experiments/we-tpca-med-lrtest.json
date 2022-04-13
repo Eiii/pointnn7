@@ -16,7 +16,7 @@
         {
             "name": "TPCA-Med",
             "train_args": {
-                "BASE": "train/weather-default.json",
+                "BASE": "train/weather-lrtest.json",
                 "reset_net": "[PREV_OUTPUT]",
                 "batch_size": 20
             },

@@ -16,7 +16,7 @@
         {
             "name": "TPCA-Med",
             "train_args": {
-                "BASE": "train/traffic-default.json",
+                "BASE": "train/traffic-lrtest.json",
                 "reset_net": "[PREV_OUTPUT]",
                 "batch_size": 40
             },
