@@ -6,7 +6,7 @@
           "name": "Pre-TPCA-Large",
           "train_args": {
             "BASE": "train/weather-lrtest-pre.json",
-            "batch_size": 20
+            "batch_size": 12
           },
           "net_args": {
             "BASE": "net/tpca-large.json",
@@ -18,7 +18,7 @@
             "train_args": {
                 "BASE": "train/weather-lrtest.json",
                 "reset_net": "[PREV_OUTPUT]",
-                "batch_size": 20
+                "batch_size": 12
             },
             "net_args": {
                 "BASE": "net/tpca-large.json",
