@@ -6,7 +6,7 @@
             "name": "TPCA-Large",
             "train_args": {
                 "BASE": "train/traffic-default.json",
-                "batch_size": 40,
+                "batch_size": 16,
                 "min_lr": 1e-08,
                 "lr": 0.00031545736980070725
             },

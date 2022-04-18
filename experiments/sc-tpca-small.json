@@ -6,7 +6,7 @@
             "name": "TPCA-Small",
             "train_args": {
                 "BASE": "train/sc-default.json",
-                "batch_size": 16,
+                "batch_size": 256,
                 "lr": 0.003978095390690605,
                 "min_lr": 2.511677703510588e-06
             },
