@@ -7,7 +7,7 @@
             "train_args": {
                 "BASE": "train/weather-default.json",
                 "batch_size": 32,
-                "min_lr": 3.981071705534974e-05,
+                "min_lr": 1.4084206836525347e-05,
                 "lr": 1.2589254117941677
             },
             "net_args": {
