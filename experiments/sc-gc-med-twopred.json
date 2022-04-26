@@ -2,7 +2,7 @@
     "output_path": "/nfs/hpc/share/merriler/output/t-sc-final",
     "problem_args": "problem/sc-twopred.json",
     "entries": [
-        
+        {
             "name": "TGC-Med-TwoPred",
             "train_args": {
                 "BASE": "train/sc-default.json",
