@@ -29,8 +29,8 @@ class _TrafficCommon(Network):
         return means
 
 
-
 class TrafficTPC(_TrafficCommon):
+    tpc_class = tpc.TemporalPointConv
     def __init__(self,
                  neighborhood_sizes = [2**4, 2**5, 2**5],
                  latent_sizes = [2**5, 2**6, 2**6],
@@ -50,10 +50,10 @@ class TrafficTPC(_TrafficCommon):
         self.time_encoder = encodings.DirectEncoding()
         self.neighbors = neighbors
         self.timesteps = timesteps
-        self.tpc = tpc.TemporalPointConv(feat_size, weight_hidden, c_mid, final_hidden,
-                                         latent_sizes, neighborhood_sizes, neighbors,
-                                         timesteps, timesteps, combine_hidden,
-                                         target_size, pos_dim, self.time_encoder, heads)
+        self.tpc = self.tpc_class(feat_size, weight_hidden, c_mid, final_hidden,
+                                  latent_sizes, neighborhood_sizes, neighbors,
+                                  timesteps, timesteps, combine_hidden,
+                                  target_size, pos_dim, self.time_encoder, heads)
         self.make_decoders(target_size, decode_hidden)
 
     def make_decoders(self, in_size, decode_hidden):
@@ -80,7 +80,13 @@ class TrafficTPC(_TrafficCommon):
             pred = pred+means.unsqueeze(-1)
         return pred
 
+
+class TrafficTPCNoSpace(TrafficTPC):
+    tpc_class = tpc.TPCNoSpace
+
+
 class TrafficInteraction(_TrafficCommon):
+    int_class = intr.TemporalInteraction
     def __init__(self,
                  neighborhood_sizes = [2**4, 2**5, 2**5],
                  latent_sizes = [2**5, 2**6, 2**6],
@@ -97,10 +103,10 @@ class TrafficInteraction(_TrafficCommon):
         self.time_encoder = encodings.DirectEncoding()
         self.neighbors = neighbors
         self.timesteps = timesteps
-        self.int = intr.TemporalInteraction(feat_size, edge_hidden,
-                                            latent_sizes, neighborhood_sizes, neighbors,
-                                            timesteps, combine_hidden, target_size, pos_dim,
-                                            self.time_encoder)
+        self.int = self.int_class(feat_size, edge_hidden,
+                                  latent_sizes, neighborhood_sizes, neighbors,
+                                  timesteps, combine_hidden, target_size, pos_dim,
+                                  self.time_encoder)
         self.make_decoders(target_size, decode_hidden)
 
     def make_decoders(self, in_size, decode_hidden):
@@ -126,6 +132,11 @@ class TrafficInteraction(_TrafficCommon):
             means = self._calc_means(tgt_id, hist_id, hist_data)
             pred = pred+means.unsqueeze(-1)
         return pred
+
+
+class TrafficIntNoSpace(TrafficInteraction):
+    int_class = intr.TIntNoSpace
+
 
 class TrafficGraphConv(Network):
     def __init__(self,
