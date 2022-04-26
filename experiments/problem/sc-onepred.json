@@ -6,6 +6,6 @@
   "hist_dist": "uniform",
   "hist_dist_args": {"max": 10},
   "pred_dist": "fixed",
-  "pred_dist_args": {"ts": [1]},
+  "pred_dist_args": {"ts": [7]},
   "frame_skip": 5
 }
