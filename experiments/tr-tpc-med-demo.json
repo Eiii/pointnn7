@@ -5,7 +5,7 @@
         {
             "name": "TPC-Med-Demo",
             "train_args": {
-                "BASE": "train/traffic-default.json",
+                "BASE": "train/traffic-demo.json",
                 "batch_size": 40,
                 "min_lr": 1e-08,
                 "lr": 0.001
