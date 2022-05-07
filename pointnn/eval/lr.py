@@ -52,17 +52,17 @@ def plot_lr_curves(measures, out_path, skip_first, normalize):
             xs = xs[1:]
             ys = ys[1:]
         if normalize:
-            plot_ys = ys / ys[0]
-            max_loss = 2
+            plot_ys = ((ys / ys[0]) - 1)
+            max_loss = 1
             plot_ys[plot_ys>max_loss] = max_loss
-            #ys = ys - ys[0]
+            plot_ys *= 100
         else:
             plot_ys = ys
         lr_thresh = calc_thresh(xs, ys)
         thresh_data[name] = lr_thresh
         ax.plot(xs, plot_ys, label=name)
     if normalize:
-        ax.axhline(1, color='k')
+        ax.axhline(0, color='k')
     ax.legend()
     return thresh_data
 
