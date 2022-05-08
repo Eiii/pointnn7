@@ -42,6 +42,8 @@ def calc_stats(losses):
 
 
 def group_results(result_dict):
+    if not result_dict:
+        return None
     all_losses = defaultdict(list)
     for net_path, result in result_dict.items():
         net_type = get_net_type(net_path)
