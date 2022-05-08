@@ -17,10 +17,10 @@ def to_cuda(d):
 def main(data_path, net_paths, bs, out_path):
     loss_dict = {}
     for net_path in net_paths:
+        print(net_path)
         prob = TrafficMETR(data_path, normalize=True, spectral=False)
         ds = prob.valid_dataset
         net = make_net(net_path)
-        # net = make_baseline('mean')
         result = eval_model(ds, net, bs)
         loss_dict[net_path] = result
     with open(out_path, 'wb') as fd:
