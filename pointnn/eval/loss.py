@@ -47,7 +47,11 @@ def group_results(result_dict):
     all_losses = defaultdict(list)
     for net_path, result in result_dict.items():
         net_type = get_net_type(net_path)
-        losses = result['loss']
+        # SC2 hack...
+        if 'loss' not in result and 'losses' in result:
+          losses = result['losses'].sum(dim=-1)
+        else:
+          losses = result['loss']
         all_losses[net_type].append(losses)
     all_stats = {k: calc_stats(v) for k, v in all_losses.items()}
     return all_stats
