@@ -18,7 +18,12 @@ def load_result(path):
 
 
 def make_net(result):
-    net = nets.make_net_args(result['net_type'], result['net_args'])
+    nt = result['net_type']
+    na = result['net_args']
+    #HACK
+    if nt == 'SC2TPC':
+        del na['neighbor_attn']
+    net = nets.make_net_args(nt, na)
     net.load_state_dict(result['state_dict'])
     return net
 
