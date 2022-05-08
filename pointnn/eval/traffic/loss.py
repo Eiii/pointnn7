@@ -83,4 +83,4 @@ def make_parser():
 
 if __name__ == '__main__':
     args = make_parser().parse_args()
-    main(args.data, args.nets, args.bs)
+    main(args.data, args.nets, args.bs, args.out)
