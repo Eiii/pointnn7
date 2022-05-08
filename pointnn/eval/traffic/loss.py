@@ -1,41 +1,67 @@
 from argparse import ArgumentParser
+from pathlib import Path
+
 from ...problem.traffic import TrafficMETR, element_loss, collate
-from ...data.traffic import collate
 from ...nets.traffic.baseline import Random, Nearest, Mean
 from .. import common
 
+import pickle
 import torch
 from torch.utils.data import DataLoader
 
-def to_cuda(d):
-    return {k:v.cuda() for k,v in d.items()}
 
-def main(data_path, net_path, norm):
-    prob = TrafficMETR(data_path, norm)
-    ds = prob.valid_dataset
-    net = make_net(net_path)
-    # net = make_baseline('mean')
-    eval_model(ds, net, norm)
+def to_cuda(d):
+    return {k: v.cuda() if v is not None else None for k, v in d.items()}
+
+
+def main(data_path, net_paths, bs, out_path):
+    loss_dict = {}
+    for net_path in net_paths:
+        prob = TrafficMETR(data_path, normalize=True, spectral=False)
+        ds = prob.valid_dataset
+        net = make_net(net_path)
+        # net = make_baseline('mean')
+        result = eval_model(ds, net, bs)
+        loss_dict[net_path] = result
+    with open(out_path, 'wb') as fd:
+        pickle.dump(loss_dict, fd)
+
+
+def pred_safe(net, ds, bs):
+    while bs != 1:
+        print(f'batch size={bs}')
+        try:
+            return pred(net, ds, bs)
+        except RuntimeError as e:
+            print(e)
+            bs = bs // 2
+    raise RuntimeError()
+
 
 @torch.no_grad()
-def eval_model(ds, net, norm):
+def pred(net, ds, bs):
     losses = []
-    norm_info = ds.norm_info if norm else None
-    loader = DataLoader(ds, batch_size=10, collate_fn=collate)
+    loader = DataLoader(ds, batch_size=bs, collate_fn=collate)
     for item in loader:
         item = to_cuda(item)
         args = net.get_args(item)
         pred = net(*args)
-        err = element_loss(item, pred, norm_info).cpu()
+        err = element_loss(item, pred, ds.norm_info).cpu()
         losses.append(err)
     losses = torch.cat(losses)
-    losses = losses ** 0.5
-    print(losses.mean())
+    return losses
+
+
+def eval_model(ds, net, bs):
+    losses = pred_safe(net, ds, bs)
+    out = {'loss': losses}
+    return out
 
 def make_net(path):
     net = common.make_net(common.load_result(path))
     net = net.cuda().eval()
     return net
+
 
 def make_baseline(type_):
     if type_ == 'random':
@@ -45,13 +71,16 @@ def make_baseline(type_):
     elif type_ == 'mean':
         return Mean()
 
+
 def make_parser():
     parser = ArgumentParser()
     parser.add_argument('--data', default='data/traffic/METR-LA')
-    parser.add_argument('--net')
-    parser.add_argument('--normalize', action='store_true')
+    parser.add_argument('--nets', nargs='+')
+    parser.add_argument('--out', default='traffic-loss.pkl')
+    parser.add_argument('--bs', type=int, default=128)
     return parser
+
 
 if __name__ == '__main__':
     args = make_parser().parse_args()
-    main(args.data, args.net, args.normalize)
+    main(args.data, args.nets, args.bs)

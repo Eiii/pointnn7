@@ -40,8 +40,8 @@ def pred(model, ds, bs, device='cpu'):
         alive.append(flat_alive)
         pred_ts.append(flat_pred_ts)
     result = {'losses': torch.cat(losses).cpu(),
-              'ts': torch.cat(pred_ts).cpu(),
-              'alive': torch.cat(alive).bool().cpu()}
+              'ts': torch.cat(pred_ts).cpu()
+             }
     return result
 
 def run_net(net, ds, max_bs):
