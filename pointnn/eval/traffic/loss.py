@@ -41,20 +41,22 @@ def pred_safe(net, ds, bs):
 @torch.no_grad()
 def pred(net, ds, bs):
     losses = []
+    mses = []
     loader = DataLoader(ds, batch_size=bs, collate_fn=collate)
     for item in loader:
         item = to_cuda(item)
         args = net.get_args(item)
         pred = net(*args)
-        err = element_loss(item, pred, ds.norm_info).cpu()
-        losses.append(err)
-    losses = torch.cat(losses)
-    return losses
+        mse = element_loss(item, pred, ds.norm_info).cpu()
+        loss = element_loss(item, pred).cpu()
+        losses.append(loss)
+        mses.append(mse)
+    return torch.cat(losses), torch.cat(mses)
 
 
 def eval_model(ds, net, bs):
-    losses = pred_safe(net, ds, bs)
-    out = {'loss': losses}
+    losses, mses = pred_safe(net, ds, bs)
+    out = {'loss': losses, 'mse': mses}
     return out
 
 def make_net(path):
