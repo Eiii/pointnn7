@@ -22,7 +22,8 @@ def make_net(result):
     na = result['net_args']
     #HACK
     if nt in ('SC2TPC', 'SC2Interaction'):
-        del na['neighbor_attn']
+        if 'neighbor_attn' in na:
+            del na['neighbor_attn']
     net = nets.make_net_args(nt, na)
     net.load_state_dict(result['state_dict'])
     return net
