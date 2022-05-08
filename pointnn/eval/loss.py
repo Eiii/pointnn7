@@ -1,12 +1,10 @@
 import pickle
 import argparse
 import torch
-
 from collections import defaultdict
-from . import common
 
 
-def main(weather_path, sc2_path, traffic_path):
+def main(weather_path, sc2_path, traffic_path, out_file):
     def _load(p):
         if p is None:
             return None
@@ -17,11 +15,14 @@ def main(weather_path, sc2_path, traffic_path):
     traffic = _load(traffic_path)
     weather_stats = group_results(weather)
     traffic_stats = group_results(traffic)
-    for d in (weather_stats, traffic_stats):
-        for k,v in d.items():
-            print(k,v)
-        print('-'*25)
-    breakpoint()
+    sc2_stats = group_results(sc2)
+    results = {'sc2': sc2_stats, 'weather': weather_stats, 'traffic': traffic_stats}
+    with open(out_file, 'wb') as fd:
+        pickle.dump(results, fd)
+
+
+def make_table(weather, traffic, sc2):
+    pass
 
 
 def get_net_type(net_path):
@@ -32,7 +33,6 @@ def get_net_type(net_path):
 
 def calc_stats(losses):
     t = torch.cat(losses)
-    # Sigh...
     t[t.isnan()] = float('inf')
     quants = [torch.quantile(t, x).item() for x in (0.25, 0.5, 0.75)]
     fails = (t > t.median()*1000)
@@ -56,6 +56,7 @@ def make_parser():
     parser.add_argument('--weather', default=None)
     parser.add_argument('--sc2', default=None)
     parser.add_argument('--traffic', default=None)
+    parser.add_argument('--out', default='loss-stats.pkl')
     return parser
 
 
