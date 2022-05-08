@@ -1,22 +1,13 @@
-from ...data.starcraft import StarcraftDataset, collate
-from ...problem.starcraft import sc2_frame_loss, get_pred_ts, get_alive
-
-from .common import seq_to_device, pred_safe, pred, run_net, param_count, net_type
+from ...data.starcraft import StarcraftDataset
 from .. import common
-from ... import utils
-
+from .common import run_net, param_count, net_type
+from pathlib import Path
+from collections import defaultdict
+import matplotlib.pyplot as plt
 import math
 import argparse
-from pathlib import Path
-
 import torch
-from torch.utils.data import DataLoader
-
-from collections import defaultdict
-
 import pickle
-
-import matplotlib.pyplot as plt
 
 
 def make_dataset(data_path, ts):
@@ -28,15 +19,22 @@ def make_dataset(data_path, ts):
     return ds
 
 
-def batch(net_paths, ds, max_bs, out='sc-loss.pkl'):
-    print(len(ds))
-    loss_dict = {}
+def batch(net_paths, ds, max_bs, out_path):
+    out_path = Path(out_path)
+    if out_path.exists():
+        with out_path.open('rb') as fd:
+            loss_dict = pickle.load(fd)
+    else:
+        loss_dict = {}
     for net_path in net_paths:
         print(net_path)
+        if net_path in loss_dict:
+            print('Skipping...')
+            continue
         net = common.make_net(common.load_result(net_path))
         pred_result = run_net(net, ds, max_bs)
         loss_dict[net_path] = pred_result
-        with open(out, 'wb') as fd:
+        with out_path.open('wb') as fd:
             pickle.dump(loss_dict, fd)
 
 
@@ -159,4 +157,4 @@ if __name__ == '__main__':
     else:
         ts = [args.t] if args.t is not None else None
         ds = make_dataset(args.data, ts)
-        batch(args.net, ds, args.bs, out=args.out)
+        batch(args.net, ds, args.bs, args.out)
