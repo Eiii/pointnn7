@@ -46,13 +46,16 @@ def table(data_path):
             item = data[domain].get(net)
             s = domain_scales[domain]
             if item:
-                qs = item['quants']
+                qs = [s*q for q in item['quants']]
                 for q in qs:
-                    row.append(f'{s*q:.2f}')
-                mean = item['mean']
-                row.append(f'{s*mean:.2f}')
-                fails = item['fails']
-                row.append(f'{100*fails:.1f}')
+                    row.append(f'{q:.2f}')
+                mean = s*item['mean']
+                row.append(f'{mean:.2f}')
+                fails = 100*item['fails']
+                if fails > 0 and fails < 0.1:
+                    row.append(f'<0.1')
+                else:
+                    row.append(f'{fails:.1f}')
             else:
                 row += ['x']*5
         print(' & '.join(row) + r' \\')
@@ -71,7 +74,7 @@ def calc_stats(losses):
     t = torch.cat(losses)
     t[t.isnan()] = float('inf')
     quants = [torch.quantile(t, x).item() for x in (0.25, 0.5, 0.75)]
-    fails = (t > t.median()*1000)
+    fails = (t > quants[-1]*100)
     fail_pct = (fails).sum().item() / len(t)
     mean = t[~fails].mean().item()
     return {'quants': quants, 'fails': fail_pct, 'mean': mean}
