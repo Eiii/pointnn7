@@ -142,7 +142,7 @@ def plot_old(path):
 def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', default='./data/sc2scene')
-    parser.add_argument('--t', default=None, type=int)
+    parser.add_argument('--ts', default=None)
     parser.add_argument('--out', default='sc-loss.pkl')
     parser.add_argument('--net', nargs='+')
     parser.add_argument('--plot', action='store_true')
@@ -155,6 +155,6 @@ if __name__ == '__main__':
     if args.plot:
         plot(args.net)
     else:
-        ts = [args.t] if args.t is not None else None
+        ts = [int(t) for t in args.ts.split(',')] if args.ts is not None else None
         ds = make_dataset(args.data, ts)
         batch(args.net, ds, args.bs, args.out)
