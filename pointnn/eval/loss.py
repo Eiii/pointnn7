@@ -30,9 +30,15 @@ def table(data_path):
     domain_scales = {'sc2': 10, 'weather': 100, 'traffic': 100}
     all_nets = [v.keys() for _, v in data.items()]
     all_nets = set(itertools.chain(*all_nets))
-    #HACK
-    hack_rename = {'GC-Large': 'TGC-Large', 'GC-Med': 'TGC-Med', 'GC-Small': 'TGC-Small'}
-    all_nets = {hack_rename.get(n, n) for n in all_nets}
+
+    # Order
+    def order_nets(n):
+        vs = [('Small', 10), ('Med', 100), ('Large', 1000),
+              ('TGC', 1), ('TInt', 2), ('TPC', 3), ('TPCA', 4)]
+        return sum(m * (s in n) for s, m in vs)
+    all_nets = sorted(all_nets, key=order_nets)
+
+    # Print
     for net in all_nets:
         row = []
         row.append(net)
@@ -49,13 +55,16 @@ def table(data_path):
                 row.append(f'{100*fails:.1f}')
             else:
                 row += ['x']*5
-        print(' & '.join(row))
+        print(' & '.join(row) + r' \\')
 
 
 def get_net_type(net_path):
     start = net_path.rfind('/')+1
     end = net_path.index(':')
-    return net_path[start:end]
+    name = net_path[start:end]
+    # HACK
+    hack_rename = {'GC-Large': 'TGC-Large', 'GC-Med': 'TGC-Med', 'GC-Small': 'TGC-Small'}
+    return hack_rename.get(name, name)
 
 
 def calc_stats(losses):
@@ -76,9 +85,9 @@ def group_results(result_dict):
         net_type = get_net_type(net_path)
         # SC2 hack...
         if 'loss' not in result and 'losses' in result:
-          losses = result['losses'].sum(dim=-1)
+            losses = result['losses'].sum(dim=-1)
         else:
-          losses = result['loss']
+            losses = result['loss']
         all_losses[net_type].append(losses)
     all_stats = {k: calc_stats(v) for k, v in all_losses.items()}
     return all_stats
