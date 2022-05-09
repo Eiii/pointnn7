@@ -8,32 +8,27 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_training_curves(measures, out_path, show_training=False, liny=False,
-                         skip_first=False):
+def plot_curves(measures, out_path, valid, smooth):
     size = (8, 5)
     fig, ax = plt.subplots(figsize=size, dpi=200)
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
-    if not liny:
-        ax.set_yscale('log')
+    ax.set_yscale('log')
     all_names = list({m.name for m in measures if m.name is not None})
     print(f'Plotting {all_names}...')
     for name in all_names:
-        print(f'Plotting {name}')
-        # Valid loss
-        vls = [m._valid_stats for m in measures if m.name == name]
+        # Training loss
+        tls = [m._training_loss for m in measures if m.name == name]
         xs = []
         ys = []
         ts = []
-        for vl in vls:
-            x = [v['epoch'] for v in vl]
-            y = [v['loss'] for v in vl]
-            t = vl[-1]['time']
-            print(t/60)
+        for tl in tls:
+            x = [v['epoch'] for v in tl]
+            y = [v['loss'] for v in tl]
+            t = tl[-1]['time']
             y_array = np.array([y])
             if np.isnan(y_array).any():
                 print('NaN loss')
-            print(len(x))
             xs.append(x)
             ys.append(y)
             ts.append(t)
@@ -41,27 +36,27 @@ def plot_training_curves(measures, out_path, show_training=False, liny=False,
         xs = np.stack([x for x in xs if len(x) == max_len])
         ys = np.stack([y for y in ys if len(y) == max_len])
         ts = [t for t in ts if len(x) == max_len]
-        #assert (xs == xs[0]).all()
         xs = xs.mean(0)
         errs = 1.96*np.std(ys, axis=0)/np.sqrt(ys.shape[0])
         ys = np.mean(ys, axis=0)
-        if skip_first:
-            xs = xs[1:]
-            ys = ys[1:]
-            errs = errs[1:]
-        print(name)
+        if smooth > 1:
+            vs = []
+            for i in range(ys.size-smooth):
+                vs.append(np.mean(ys[i:i+smooth]))
+            ys = np.array(vs)
+            xs = xs[:ys.size]
         main_plot = ax.plot(xs, ys, label=name)
         main_color = main_plot[-1].get_color()
-        ax.fill_between(xs, ys+errs, ys-errs, color=main_color, alpha=0.25)
+        #ax.fill_between(xs, ys+errs, ys-errs, color=main_color, alpha=0.25)
 
         # Training loss
-        if show_training:
-            tls = [m._training_loss for m in measures if m.name == name]
+        if valid:
+            vls = [m._valid_stats for m in measures if m.name == name]
             xs = []
             ys = []
-            for tl in tls:
-                x = [t['epoch'] for t in tl]
-                y = [t['loss'] for t in tl]
+            for vl in vls:
+                x = [t['epoch'] for t in vl]
+                y = [t['loss'] for t in vl]
                 y_array = np.array([y])
                 if np.isnan(y_array).any():
                     continue
@@ -76,14 +71,21 @@ def plot_training_curves(measures, out_path, show_training=False, liny=False,
     ax.legend()
 
 
-def make_plots(folder, out_path, liny=False, filter=None, training=False,
-               skip_first=False):
+def make_plots(folder, out_path, filter, filter_all, filter_ignore, valid, smooth):
     measures = [r['measure'] for r in common.load_any(folder)]
     if filter:
         filters = filter.split(',')
         measures = [m for m in measures
                     if any(f in m.name for f in filters)]
-    plot_training_curves(measures, out_path, training, liny, skip_first)
+    if filter_all:
+        filters = filter_all.split(',')
+        measures = [m for m in measures
+                    if all(f in m.name for f in filters)]
+    if filter_ignore:
+        filters = filter_ignore.split(',')
+        measures = [m for m in measures
+                    if not any(f in m.name for f in filters)]
+    plot_curves(measures, out_path, valid, smooth)
     plt.tight_layout()
     plt.savefig(out_path)
 
@@ -92,15 +94,17 @@ def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('folder')
     parser.add_argument('--output', default='out.png')
-    parser.add_argument('--filter', default=None)
+    parser.add_argument('--valid', action='store_true')
+    parser.add_argument('--smooth', type=int, default=0)
+    parser.add_argument('--filter-any', default=None)
+    parser.add_argument('--filter-all', default=None)
+    parser.add_argument('--filter-ignore', default=None)
     parser.add_argument('--training', action='store_true')
-    parser.add_argument('--liny', action='store_true')
     parser.add_argument('--skip-first', action='store_true')
     return parser
 
 
 if __name__ == '__main__':
     args = make_parser().parse_args()
-    make_plots(args.folder, args.output, args.liny, args.filter, args.training,
-               args.skip_first)
+    make_plots(args.folder, args.output, args.filter_any, args.filter_all, args.filter_ignore, args.valid, args.smooth)
 

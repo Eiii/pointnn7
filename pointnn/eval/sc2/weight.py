@@ -1,15 +1,8 @@
 from .. import common
+from pathlib import Path
 import argparse
 import torch
 import matplotlib.pyplot as plt
-
-
-def plot_weights(pos, weights, out='out.png'):
-    fig, ax = plt.subplots()
-    xs, ys = pos
-    ax.pcolormesh(xs, ys, weights)
-    fig.savefig(out)
-    plt.close(fig)
 
 
 def calc_weights_tpc(net, layer=0):
@@ -26,17 +19,23 @@ def calc_weights_tpc(net, layer=0):
 def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--net')
+    parser.add_argument('--out', type=Path, default=Path('.'))
+    parser.add_argument('--ftype', default='png')
+    parser.add_argument('--layer', type=int, default=0)
     return parser
 
 
-def main(net_path):
+def main(net_path, layer, out, ftype):
     net = common.make_net(common.load_result(net_path)).eval()
-    pos, weights = calc_weights_tpc(net)
+    pos, weights = calc_weights_tpc(net, layer)
     for i in range(16):
-        w = weights[:, :, i]
-        plot_weights(pos, w, f'out{i}.png')
+        fig, ax = plt.subplots()
+        xs, ys = pos
+        ax.pcolormesh(xs, ys, weights[:, :, i], shading='auto')
+        fig.savefig(out/f'weight_{layer}_{i}.{ftype}')
+        plt.close(fig)
 
 
 if __name__ == '__main__':
     args = make_parser().parse_args()
-    main(args.net)
+    main(args.net, args.layer, args.out, args.ftype)
