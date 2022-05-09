@@ -1,7 +1,9 @@
 import pickle
+import itertools
 import argparse
 import torch
 from collections import defaultdict
+from sys import argv
 
 
 def main(weather_path, sc2_path, traffic_path, out_file):
@@ -21,8 +23,33 @@ def main(weather_path, sc2_path, traffic_path, out_file):
         pickle.dump(results, fd)
 
 
-def make_table(weather, traffic, sc2):
-    pass
+def table(data_path):
+    with open(data_path, 'rb') as fd:
+        data = pickle.load(fd)
+    domain_order = ['sc2', 'weather', 'traffic']
+    domain_scales = {'sc2': 10, 'weather': 100, 'traffic': 100}
+    all_nets = [v.keys() for _, v in data.items()]
+    all_nets = set(itertools.chain(*all_nets))
+    #HACK
+    hack_rename = {'GC-Large': 'TGC-Large', 'GC-Med': 'TGC-Med', 'GC-Small': 'TGC-Small'}
+    all_nets = {hack_rename.get(n, n) for n in all_nets}
+    for net in all_nets:
+        row = []
+        row.append(net)
+        for domain in domain_order:
+            item = data[domain].get(net)
+            s = domain_scales[domain]
+            if item:
+                qs = item['quants']
+                for q in qs:
+                    row.append(f'{s*q:.2f}')
+                mean = item['mean']
+                row.append(f'{s*mean:.2f}')
+                fails = item['fails']
+                row.append(f'{100*fails:.1f}')
+            else:
+                row += ['x']*5
+        print(' & '.join(row))
 
 
 def get_net_type(net_path):
@@ -66,6 +93,16 @@ def make_parser():
     return parser
 
 
+def make_table_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('file')
+    return parser
+
+
 if __name__ == '__main__':
-    args = make_parser().parse_args()
-    main(args.weather, args.sc2, args.traffic, args.out)
+    if len(argv) > 1 and argv[1] == 'table':
+        args = make_table_parser().parse_args(argv[2:])
+        table(args.file)
+    else:
+        args = make_parser().parse_args()
+        main(args.weather, args.sc2, args.traffic, args.out)
