@@ -1,6 +1,6 @@
 from ...data.starcraft import StarcraftDataset, collate, parse_frame
 from .. import common
-from ...nets.pointconv import PointConvAttn, _closest_pts_to_keys, _gather_neighbor_info
+from ...nets.pointconv import PointConvAttn, closest_pts_to_keys, _gather_neighbor_info
 from ...nets.sc2 import dists
 from . import plot
 from functools import partial
@@ -37,16 +37,13 @@ def plot_attn(item, net):
     ts = item['ts'][frame_sel]
     pos = pf['pos']
     pos_t = torch.cat((pos, ts.unsqueeze(-1)), dim=-1).unsqueeze(0)
-    dist_fn = partial(dists.space, in_mask.unsqueeze(0))
-    nei_idxs_tuple = _closest_pts_to_keys(pos_t, pos_t, 8, dist_fn)
+    dist_fn = partial(dists.space, in_mask.unsqueeze(0), ts.unsqueeze(0))
+    nei_idxs_tuple = closest_pts_to_keys(pos_t, pos_t, 8, dist_fn)
     nei_idxs = nei_idxs_tuple[0]
     _, nei_info, _ = _gather_neighbor_info(in_batch, *nei_idxs_tuple)
-    attns_l = []
-    for space_attn in net.space_attns:
-        attn = PointConvAttn.calc_attn(in_batch, nei_info, space_attn).squeeze(0)
-        attns_l.append(attn)
-    attns = torch.cat(attns_l, dim=-1)
-    attns = attns ** 0.5
+    first_conv = net.tpc.space_convs[0]
+    attn = first_conv.calc_attn(in_batch, nei_info).squeeze(0)
+    #attn = attn ** 0.5
     num_units = in_frame.size(0)
     for unit_num in range(num_units):
         if pf['alive'][unit_num] != 1:
@@ -62,7 +59,7 @@ def plot_attn(item, net):
         other_poss = [pf['pos'][n] for n in others]
         circ = plt.Circle(unit_pos.tolist(), 0.05, color='r', fill=False)
         ax1.add_artist(circ)
-        nei_attns = attns[unit_num]
+        nei_attns = attn[unit_num]
         for other_pos, other_attn in zip(other_poss, nei_attns):
             attn_color = other_attn.tolist()
             circ = plt.Circle(other_pos.tolist(), 0.05, color=attn_color)
