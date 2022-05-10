@@ -3,6 +3,7 @@ from .. import common
 from .common import run_net, param_count, net_type
 from pathlib import Path
 from collections import defaultdict
+from sys import argv
 import matplotlib.pyplot as plt
 import math
 import argparse
@@ -111,24 +112,27 @@ def plot(paths):
 
 
 def plot_old(path):
-    pkls = list(Path('.').glob(path+'out*.pkl'))
-    print(pkls)
-    ts = [int(p.stem.split('-')[-1]) for p in pkls]
-    plot_data = defaultdict(dict)
-    for t, pkl in sorted(zip(ts, pkls)):
-        with pkl.open('rb') as fd:
-            data = pickle.load(fd)
-        for net, losses in data.items():
-            losses = losses.sum(dim=-1)
+    with open(path, 'rb') as fd:
+        data = pickle.load(fd)
+        plot_data = defaultdict(lambda: defaultdict(list))
+        for net_path, loss_info in data.items():
+            net_name = net_path[net_path.rfind('/')+1:net_path.index(':')]
+            if 'loss' not in loss_info:
+                losses = loss_info['losses'].sum(dim=-1)
+            else:
+                losses = loss_info['loss']
+            ts = loss_info['ts']
             mean = losses.mean().item()
-            mean = min(mean, 5)
-            sem = losses.std().item() / (len(losses)**0.5)
-            plot_data[net][t] = (mean, sem)
+            uniq_ts = ts.unique()
+            for t in uniq_ts:
+                t_losses = losses[ts==t]
+                plot_data[net_name][t.item()] = t_losses.mean().item()
     fig, ax = plt.subplots()
     width = 0.9/3
+    breakpoint()
     for i, (name, t_data) in enumerate(plot_data.items()):
-        ts = list(range(1, 1+12))
-        means = [t_data[t][0] for t in ts]
+        ts = list(range(1, 1+10))
+        means = [t_data[t] for t in ts]
         print(means)
         plot_ts = [t+i*width for t in ts]
         ax.bar(plot_ts, means, width, label=name)
@@ -149,12 +153,18 @@ def make_parser():
     parser.add_argument('--bs', type=int, default=32)
     return parser
 
+def make_plot_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('path')
+    return parser
+
 
 if __name__ == '__main__':
-    args = make_parser().parse_args()
-    if args.plot:
-        plot(args.net)
+    if len(argv) > 1 and argv[1] == 'plot':
+        args = make_plot_parser().parse_args(argv[2:])
+        plot_old(args.path)
     else:
+        args = make_parser().parse_args()
         ts = [int(t) for t in args.ts.split(',')] if args.ts is not None else None
         ds = make_dataset(args.data, ts)
         batch(args.net, ds, args.bs, args.out)
