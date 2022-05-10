@@ -1,6 +1,7 @@
 from ...data.weather import WeatherDataset, collate
 from ...problem.weather import flat_loss, scaled_loss
 from .. import common
+from .baselines import SelfEnsemble
 from torch.utils.data import DataLoader
 import math
 import argparse
@@ -45,10 +46,11 @@ def pred(model, ds, bs, device):
     return torch.cat(losses), torch.cat(scaled_losses)
 
 
-def run_net(net, ds, bs):
+def run_net(net, ds, bs, drop):
     with torch.no_grad():
         net = net.eval().cuda()
-        #ens = SelfEnsemble(net, 3, {'force_dropout': 0.2})
+        if drop > 0:
+            net = SelfEnsemble(net, 5, {'force_dropout': drop})
         return pred_safe(net, ds, bs, device='cuda')
 
 
@@ -61,37 +63,16 @@ def show_results(losses):
 
 
 def batch(data_path, net_paths, bs, drop, out_path):
-    ds = WeatherDataset(data_path, load_train=False, drop=drop)
+    ds = WeatherDataset(data_path, load_train=False)
     ds = ds.test_dataset
     loss_dict = {}
     for net_path in net_paths:
         print(net_path)
         net = common.make_net(common.load_result(net_path))
-        loss, scaled_loss = run_net(net, ds, bs)
+        loss, scaled_loss = run_net(net, ds, bs, drop)
         loss_dict[net_path] = {'loss': scaled_loss, 'mse': loss}
         with open(out_path, 'wb') as fd:
             pickle.dump(loss_dict, fd)
-
-
-def table(path):
-    with open(path, 'rb') as fd:
-        data = pickle.load(fd)
-    for key in data:
-        all_losses, scaled_losses = data[key]
-        means = all_losses.mean(dim=0)
-        stds = all_losses.std(dim=0)
-        count = all_losses.size(0)
-        stderr = 1.96 * stds / math.sqrt(count)
-        scaled_mean = scaled_losses.mean().item()
-        scaled_stderr = (1.96 * scaled_losses.std() / math.sqrt(count)).item()
-        strs = []
-        for m, s in zip(means, stds):
-            m = m.item()
-            s = s.item()
-            strs.append(f'$ {m:.2f} \pm {s:.2f} $')
-        strs.append(f'$ {scaled_mean:.4f} \pm {scaled_stderr:.4f} $')
-        print(key)
-        print(' & '.join(strs))
 
 
 def make_parser():
@@ -101,8 +82,8 @@ def make_parser():
     parser.add_argument('--out', default='weather-loss.pkl')
     parser.add_argument('--drop', default=0, type=float)
     parser.add_argument('--bs', default=32, type=int)
-    parser.add_argument('--table', action='store_true')
     return parser
+
 
 if __name__=='__main__':
     args = make_parser().parse_args()
