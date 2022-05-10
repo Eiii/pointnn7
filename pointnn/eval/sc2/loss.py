@@ -112,26 +112,28 @@ def plot(paths):
     fig.savefig('out.png')
 
 
-def plot_old(path):
-    with open(path, 'rb') as fd:
-        data = pickle.load(fd)
-        plot_data = defaultdict(lambda: defaultdict(list))
-        for net_path, loss_info in data.items():
-            net_name = net_path[net_path.rfind('/')+1:net_path.index(':')]
-            if 'loss' not in loss_info:
-                losses = loss_info['losses'].sum(dim=-1)
-            else:
-                losses = loss_info['loss']
-            ts = loss_info['ts']
-            uniq_ts = ts.unique()
-            for t in uniq_ts:
-                if 'TwePred' in net_name:
-                    breakpoint()
-                t_losses = losses[ts==t]
-                plot_data[net_name][t.item()] = t_losses.mean().item()
+def plot_old(paths):
+    plot_data = defaultdict(lambda: defaultdict(list))
+    for path in paths:
+        with open(path, 'rb') as fd:
+            data = pickle.load(fd)
+            for net_path, loss_info in data.items():
+                net_name = net_path[net_path.rfind('/')+1:net_path.index(':')]
+                if 'loss' not in loss_info:
+                    losses = loss_info['losses'].sum(dim=-1)
+                else:
+                    losses = loss_info['loss']
+                ts = loss_info['ts']
+                uniq_ts = ts.unique()
+                for t in uniq_ts:
+                    t_losses = losses[ts==t]
+                    plot_data[net_name][t.item()].append(t_losses)
+    for net_name in plot_data:
+        for t in plot_data[net_name]:
+            mean = torch.cat(plot_data[net_name][t]).mean().item()
+            plot_data[net_name][t] = mean
     fig, ax = plt.subplots()
     width = 0.9/3
-    breakpoint()
     for i, (name, t_data) in enumerate(plot_data.items()):
         ts = list(range(1, 1+10))
         means = [t_data[t] for t in ts]
@@ -157,14 +159,14 @@ def make_parser():
 
 def make_plot_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('path')
+    parser.add_argument('paths', nargs='+')
     return parser
 
 
 if __name__ == '__main__':
     if len(argv) > 1 and argv[1] == 'plot':
         args = make_plot_parser().parse_args(argv[2:])
-        plot_old(args.path)
+        plot_old(args.paths)
     else:
         args = make_parser().parse_args()
         if args.t is None:
