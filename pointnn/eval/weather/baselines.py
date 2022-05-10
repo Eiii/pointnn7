@@ -1,5 +1,5 @@
 import torch
-from sklearn.neighbors import KNeighborsTransformer
+#from sklearn.neighbors import KNeighborsTransformer
 
 import numpy as np
 import math
