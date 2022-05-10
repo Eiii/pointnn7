@@ -2,14 +2,12 @@ from .. import common
 from ...data.traffic import METRDataset
 
 from pathlib import Path
-import sys
 import argparse
 import torch
 import matplotlib.pyplot as plt
 
 
 def calc_weights_tpc(dist_data, net, layer=0):
-    steps = 150
     xs, ys, _, costs = zip(*dist_data)
     xs, ys, costs = [torch.tensor(x) for x in (xs, ys, costs)]
     in_ = torch.stack((xs, ys, costs), dim=-1)
@@ -45,21 +43,20 @@ def plot_sensor_weights(ax, dist_data, weights, idx):
     ax.scatter([center_x], [center_y], color='magenta', s=30)
 
 
-def main(base, net_path):
+def main(base, net_path, out):
     all_fn = lambda _: True
     ds = METRDataset(base, all_fn, True, False)
     net = common.make_net(common.load_result(net_path)).eval()
-    for l in range(2):
-        for i in range(10):
-            for w in range(10):
-                sensor_dist = get_sensor_pos(ds, i)
-                weights = calc_weights_tpc(sensor_dist, net, l)
-                weights = weights[:, w]
-                fix, ax = plt.subplots(figsize=(10,10), dpi=100)
-                plot_sensor_weights(ax, sensor_dist, weights, i)
-                plt.savefig(f'x_{l}_{i}_{w}.png')
+    for i in range(10):
+        sensor_dist = get_sensor_pos(ds, i)
+        for l in range(2):
+            weights = calc_weights_tpc(sensor_dist, net, l)
+            for w in range(8):
+                plot_weights = weights[:, w]
+                fix, ax = plt.subplots(figsize=(10, 10), dpi=100)
+                plot_sensor_weights(ax, sensor_dist, plot_weights, i)
+                plt.savefig(out/f'w_{i}_{l}_{w}.png')
                 plt.close()
-    #pos, weights = calc_weights_tpc(net)
 
 
 def make_parser():
@@ -67,9 +64,12 @@ def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', default=Path(def_data))
     parser.add_argument('--net')
+    parser.add_argument('--out', type=Path, default=Path('tweight'))
     return parser
 
 
 if __name__ == '__main__':
     args = make_parser().parse_args()
-    main(args.data, args.net)
+    if not args.out.exists():
+        args.out.mkdir()
+    main(args.data, args.net, args.out)
