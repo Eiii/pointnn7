@@ -1,5 +1,6 @@
 import torch
 
+
 class Random:
     def __init__(self, range):
         self.range = range
@@ -10,6 +11,7 @@ class Random:
     def __call__(self, ids):
         r = torch.rand_like(ids, dtype=torch.float)
         return (r*(self.range[1]-self.range[0]))+self.range[0]
+
 
 class Nearest:
     def __init__(self, device='cuda'):
@@ -23,11 +25,12 @@ class Nearest:
         out = []
         for id_ in tgt_id[0]:
             mask = (hist_id == id_.item())
-            min_t = hist_t[mask].min()
-            mask *= (hist_t == min_t)
-            val = hist_data[mask].item()
+            max_t = hist_t[mask].max()
+            mask *= (hist_t == max_t)
+            val = hist_data[mask]
             out.append(val)
-        return torch.tensor(out).unsqueeze(0).to(self.device)
+        return torch.stack(out, dim=1).to(self.device)
+
 
 class Mean:
     def __init__(self, device='cuda'):
@@ -40,7 +43,7 @@ class Mean:
     def __call__(self, hist_data, hist_id, hist_t, tgt_id):
         out = []
         for id_ in tgt_id[0]:
-            mask = (hist_id == id_.item())
-            val = hist_data[mask].mean().item()
-            out.append(val)
-        return torch.tensor(out).unsqueeze(0).to(self.device)
+            mask = (hist_id[0] == id_)
+            vals = hist_data[:, mask].mean(dim=-1)
+            out.append(vals)
+        return torch.stack(out, dim=1).to(self.device)

@@ -14,15 +14,23 @@ def to_cuda(d):
     return {k: v.cuda() if v is not None else None for k, v in d.items()}
 
 
-def main(data_path, net_paths, bs, out_path):
+def main(data_path, net_paths, baseline, bs, out_path):
     loss_dict = {}
-    for net_path in net_paths:
-        print(net_path)
-        prob = TrafficMETR(data_path, normalize=True, spectral=False)
-        ds = prob.valid_dataset
-        net = make_net(net_path)
-        result = eval_model(ds, net, bs)
-        loss_dict[net_path] = result
+    if baseline:
+        models = [('Nearest', Nearest()), ('Mean', Mean())]
+        for model_name, model in models:
+            prob = TrafficMETR(data_path, normalize=True, spectral=False)
+            ds = prob.valid_dataset
+            result = eval_model(ds, model, bs)
+            loss_dict[model_name] = result
+    else:
+        for net_path in net_paths:
+            print(net_path)
+            prob = TrafficMETR(data_path, normalize=True, spectral=False)
+            ds = prob.valid_dataset
+            net = make_net(net_path)
+            result = eval_model(ds, net, bs)
+            loss_dict[net_path] = result
     with open(out_path, 'wb') as fd:
         pickle.dump(loss_dict, fd)
 
@@ -78,6 +86,7 @@ def make_parser():
     parser = ArgumentParser()
     parser.add_argument('--data', default='data/traffic/METR-LA')
     parser.add_argument('--nets', nargs='+')
+    parser.add_argument('--baseline', action='store_true')
     parser.add_argument('--out', default='traffic-loss.pkl')
     parser.add_argument('--bs', type=int, default=128)
     return parser
@@ -85,4 +94,4 @@ def make_parser():
 
 if __name__ == '__main__':
     args = make_parser().parse_args()
-    main(args.data, args.nets, args.bs, args.out)
+    main(args.data, args.nets, args.baseline, args.bs, args.out)
