@@ -60,6 +60,7 @@ def plot_attn(item, net, out):
         circ = plt.Circle(unit_pos.tolist(), 0.05, color='r', fill=False)
         ax1.add_artist(circ)
         nei_attns = attn[unit_num]
+        nei_attns = nei_attns ** 0.5
         for other_pos, other_attn in zip(other_poss, nei_attns):
             attn_color = other_attn.tolist()
             circ = plt.Circle(other_pos.tolist(), 0.05, color=attn_color)

@@ -105,7 +105,7 @@ def single(base, net_paths, month, day, out, sensors, xstart, xend):
             plot_preds(ax, ds, pred, sensor_idx, norm_info, name)
         plot_preds(ax, ds, mean_preds, sensor_idx, norm_info, 'mean')
         ax.legend()
-        fig.savefig(f'day/{sensor_id}.png')
+        fig.savefig(out/f'{sensor_id}.png')
         plt.close(fig)
 
 
