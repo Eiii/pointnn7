@@ -35,6 +35,7 @@ def batch(net_paths, ds, max_bs, out_path):
         net = common.make_net(common.load_result(net_path))
         pred_result = run_net(net, ds, max_bs)
         loss_dict[net_path] = pred_result
+        print(pred_result['losses'].mean().item())
         with out_path.open('wb') as fd:
             pickle.dump(loss_dict, fd)
 
@@ -122,9 +123,10 @@ def plot_old(path):
             else:
                 losses = loss_info['loss']
             ts = loss_info['ts']
-            mean = losses.mean().item()
             uniq_ts = ts.unique()
             for t in uniq_ts:
+                if 'TwePred' in net_name:
+                    breakpoint()
                 t_losses = losses[ts==t]
                 plot_data[net_name][t.item()] = t_losses.mean().item()
     fig, ax = plt.subplots()
@@ -146,7 +148,7 @@ def plot_old(path):
 def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', default='./data/sc2scene')
-    parser.add_argument('--ts', default=None)
+    parser.add_argument('--t', type=int, default=None)
     parser.add_argument('--out', default='sc-loss.pkl')
     parser.add_argument('--net', nargs='+')
     parser.add_argument('--plot', action='store_true')
@@ -165,6 +167,9 @@ if __name__ == '__main__':
         plot_old(args.path)
     else:
         args = make_parser().parse_args()
-        ts = [int(t) for t in args.ts.split(',')] if args.ts is not None else None
-        ds = make_dataset(args.data, ts)
-        batch(args.net, ds, args.bs, args.out)
+        if args.t is None:
+            ds = make_dataset(args.data, None)
+            batch(args.net, ds, args.bs, args.out)
+        else:
+            ds = make_dataset(args.data, [args.t])
+            batch(args.net, ds, args.bs, args.out)
