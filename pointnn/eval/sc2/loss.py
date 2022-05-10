@@ -112,13 +112,15 @@ def plot(paths):
     fig.savefig('out.png')
 
 
-def plot_old(paths):
+def plot_old(paths, filter, out):
     plot_data = defaultdict(lambda: defaultdict(list))
     for path in paths:
         with open(path, 'rb') as fd:
             data = pickle.load(fd)
             for net_path, loss_info in data.items():
                 net_name = net_path[net_path.rfind('/')+1:net_path.index(':')]
+                if filter and filter not in net_name:
+                    continue
                 if 'loss' not in loss_info:
                     losses = loss_info['losses'].sum(dim=-1)
                 else:
@@ -135,8 +137,8 @@ def plot_old(paths):
     fig, ax = plt.subplots()
     width = 0.9/3
     for i, (name, t_data) in enumerate(plot_data.items()):
-        ts = list(range(1, 1+10))
-        means = [t_data[t] for t in ts]
+        ts = list(range(1, 1+12))
+        means = [min(t_data[t],3) for t in ts]
         print(means)
         plot_ts = [t+i*width for t in ts]
         ax.bar(plot_ts, means, width, label=name)
@@ -144,7 +146,7 @@ def plot_old(paths):
     #ax.set_yscale('log')
     ax.set_xlabel('Time Delta')
     ax.set_ylabel('Avg. Loss')
-    fig.savefig('out.png')
+    fig.savefig(out)
 
 
 def make_parser():
@@ -160,13 +162,15 @@ def make_parser():
 def make_plot_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('paths', nargs='+')
+    parser.add_argument('--filter', default=None)
+    parser.add_argument('--out', default='out.png')
     return parser
 
 
 if __name__ == '__main__':
     if len(argv) > 1 and argv[1] == 'plot':
         args = make_plot_parser().parse_args(argv[2:])
-        plot_old(args.paths)
+        plot_old(args.paths, args.filter, args.out)
     else:
         args = make_parser().parse_args()
         if args.t is None:
