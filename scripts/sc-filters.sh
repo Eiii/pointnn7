@@ -3,6 +3,7 @@
 SC=cluster/t-sc-final
 OUT=scweights
 SIZES="Small Med Large"
+FTYPE=pdf
 
 
 for s in $SIZES; do
@@ -11,7 +12,7 @@ for s in $SIZES; do
   DEST=$OUT/$s
   mkdir -p $DEST
   for l in $(seq 0 2) ; do 
-    python -m pointnn.eval.sc2.weight --net $NET --layer $l --out $DEST
+    python -m pointnn.eval.sc2.weight --net $NET --layer $l --out $DEST --ftype $FTYPE
   done
 done
 

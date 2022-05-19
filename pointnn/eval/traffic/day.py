@@ -25,6 +25,7 @@ def make_parser():
     parser.add_argument('--sensors', nargs='+', type=int)
     parser.add_argument('--xstart', type=int)
     parser.add_argument('--xend', type=int)
+    parser.add_argument('--ftype', default='png')
     return parser
 
 
@@ -85,7 +86,7 @@ def get_net_type(net_path):
     return net_path[start:end]
 
 
-def single(base, net_paths, month, day, out, sensors, xstart, xend):
+def single(base, net_paths, month, day, out, sensors, xstart, xend, ftype):
     filter_fn = lambda date: date.week % 10 == 0 and date.month == month and date.day == day
     ds = METRDataset(base, filter_fn, True, False)
     assert len(ds) == 288, "Date isn't in the test dataset"
@@ -105,7 +106,7 @@ def single(base, net_paths, month, day, out, sensors, xstart, xend):
             plot_preds(ax, ds, pred, sensor_idx, norm_info, name)
         plot_preds(ax, ds, mean_preds, sensor_idx, norm_info, 'mean')
         ax.legend()
-        fig.savefig(out/f'{sensor_id}.png')
+        fig.savefig(out/f'{sensor_id}.{ftype}')
         plt.close(fig)
 
 
@@ -113,4 +114,4 @@ if __name__ == '__main__':
     args = make_parser().parse_args()
     if not args.out.exists():
         args.out.mkdir()
-    single(args.data, args.net, args.month, args.day, args.out, args.sensors, args.xstart, args.xend)
+    single(args.data, args.net, args.month, args.day, args.out, args.sensors, args.xstart, args.xend, args.ftype)

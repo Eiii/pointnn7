@@ -25,7 +25,7 @@ def pick_pred(p, idx):
         return x[:, [idx], :, :]
     return {k:sel(v) for k, v in p.items()}
 
-def plot_attn(item, net, out):
+def plot_attn(item, net, out, ftype):
     pred = net_predict(item, net)
     #
     frame_sel = item['ts'] == 0
@@ -65,10 +65,10 @@ def plot_attn(item, net, out):
             attn_color = other_attn.tolist()
             circ = plt.Circle(other_pos.tolist(), 0.05, color=attn_color)
             ax1.add_artist(circ)
-        fig.savefig(out/f'{unit_num:02d}.png')
+        fig.savefig(out/f'{unit_num:02d}.{ftype}')
         plt.close(fig)
 
-def main_single(net_path, data_path, frame, out):
+def main_single(net_path, data_path, frame, out, ftype):
     if net_path.is_dir():
         net_path = list(net_path.glob('*.pkl'))[0]
         print(net_path)
@@ -77,7 +77,7 @@ def main_single(net_path, data_path, frame, out):
                           hist_dist='fixed', hist_dist_args={'ts': [0]},
                           pred_dist='fixed', pred_dist_args={'ts': [1,2,4,7]})
     item = collate([ds[frame]])
-    plot_attn(item, net, out)
+    plot_attn(item, net, out, ftype)
 
 def make_parser():
     parser = argparse.ArgumentParser()
@@ -85,10 +85,11 @@ def make_parser():
     parser.add_argument('--data', type=Path)
     parser.add_argument('--out', type=Path, default=Path('scattn'))
     parser.add_argument('--frame', type=int, default=50)
+    parser.add_argument('--ftype', default='png')
     return parser
 
 if __name__ == '__main__':
     args = make_parser().parse_args()
     if not args.out.exists():
         args.out.mkdir()
-    main_single(args.net, args.data, args.frame, args.out)
+    main_single(args.net, args.data, args.frame, args.out, args.ftype)
