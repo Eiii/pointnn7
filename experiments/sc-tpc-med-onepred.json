@@ -7,8 +7,8 @@
             "train_args": {
                 "BASE": "train/sc-default.json",
                 "batch_size": 128,
-                "lr": 0.0009993766944458727,
-                "min_lr": 6.300138861482548e-08
+                "lr": 0.0006301873365036083,
+                "min_lr": 2.5103532351117584e-06
             },
             "net_args": {
                 "BASE": "net/tpc-med.json",

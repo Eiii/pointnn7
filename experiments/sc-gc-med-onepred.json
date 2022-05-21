@@ -7,8 +7,8 @@
             "train_args": {
                 "BASE": "train/sc-default.json",
                 "batch_size": 128,
-                "lr": 0.0009987541145553103,
-                "min_lr": 6.297000537513945e-08
+                "lr": 0.0006303157121603062,
+                "min_lr": 2.5080558293640767e-06
             },
             "net_args": {
                 "BASE": "net/gc-med.json",
