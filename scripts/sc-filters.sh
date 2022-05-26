@@ -3,7 +3,7 @@
 SC=cluster/t-sc-final
 OUT=scweights
 SIZES="Small Med Large"
-FTYPE=pdf
+FTYPE=png
 
 
 for s in $SIZES; do
