@@ -3,8 +3,10 @@ import torch.nn.functional as F
 
 import itertools
 
+
 def _goal_sizes(ts, dims):
     return [max(t.size(d) for t in ts) for d in dims]
+
 
 def _pad_tensor(t, dims, sizes, value):
     pads = [0]*t.dim()
@@ -12,6 +14,7 @@ def _pad_tensor(t, dims, sizes, value):
         pads[i] = s - t.size(i)
     pads = list(itertools.chain(*reversed([(0, p) for p in pads])))
     return F.pad(t, pads, value=value)
+
 
 def pad_tensors(ts, dims=None, value=0):
     if dims is None:
