@@ -1,25 +1,21 @@
 from .common import pad_tensors
-import math
 import pickle
 import itertools
-import functools
 import time
-import multiprocessing
 
 from collections import namedtuple
-from functools import partial
 from pathlib import Path
 
 import numpy as np
 import scipy.stats as S
-import torch
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
 
-#import MinkowskiEngine as ME
+import torch
+from torch.utils.data import Dataset
 
 Entry = namedtuple('Entry', ['ep_idx', 'hist_idxs', 'hist_ts', 'pred_ts',
-                                'pred_idxs'])
+                             'pred_idxs'])
+
+
 class StarcraftDataset(Dataset):
     def __init__(self, base,
                  max_hist=3,
@@ -122,7 +118,7 @@ class StarcraftDataset(Dataset):
         all_entries = []
         worker_episodes = itertools.islice(self.raw_episodes, worker_id, None, num_workers)
         for ep_idx, ep in enumerate(worker_episodes):
-            for ref_idx in range(0, len(ep), frame_skip): #TODO
+            for ref_idx in range(0, len(ep), frame_skip):
                 all_entries += self.make_entries(ep_idx, ref_idx)
         return all_entries
 
@@ -209,17 +205,17 @@ class StarcraftDataset(Dataset):
         first = hist[np.argmin(ts)]
         for fr_idx, fr in enumerate(preds):
             for unit_idx, id_ in enumerate(pred_ids):
-                idx = np.nonzero(id_==fr.tags)[0]
+                idx = np.nonzero(id_ == fr.tags)[0]
                 if idx.size > 0:
                     row = fr.data[:, idx[0]]
                     pred_data[fr_idx, unit_idx] = row
                 else:
                     # The unit is dead! Fill in its state from the first frame
                     # instead
-                    idx = np.nonzero(id_==first.tags)[0]
+                    idx = np.nonzero(id_ == first.tags)[0]
                     assert len(idx) == 1
                     row = first.data[:, idx[0]]
-                    row[4:] = 0 #Zero out non-static data
+                    row[4:] = 0  # Zero out non-static data
                     pred_data[fr_idx, unit_idx] = row
         # Make full mask
         d = {'data': all_data,
@@ -237,9 +233,11 @@ class StarcraftDataset(Dataset):
     def __len__(self):
         return len(self.all_entries)
 
+
 def parse_frame(frame, feat_idx=None):
     if feat_idx == None:
         feat_idx = frame.dim()-1
+
     def _get_cols(idx, size):
         i = torch.tensor(range(idx, idx+size), device=frame.device)
         f = frame.index_select(feat_idx, i)
@@ -251,7 +249,8 @@ def parse_frame(frame, feat_idx=None):
                  'ori': (6, 7),
                  'alive': (13, 1),
                  'pos': (14, 2)}
-    return {feat:_get_cols(*idxs) for feat,idxs in feat_idxs.items()}
+    return {feat: _get_cols(*idxs) for feat, idxs in feat_idxs.items()}
+
 
 def collate(items):
     get_tensors = lambda k: [torch.tensor(i[k]) for i in items]
@@ -265,6 +264,7 @@ def collate(items):
             'mask': padded_mask,
             **collate_pred(items)}
 
+
 def collate_pred(items):
     get_tensors = lambda k: [torch.tensor(i[k]) for i in items]
     padded_pred_data = pad_tensors(get_tensors('pred_data'), [0, 1])
@@ -277,44 +277,3 @@ def collate_pred(items):
             'pred_ts': padded_pred_ts.float(),
             'pred_ts_mask': padded_pred_ts_mask,
             'pred_ids_mask': padded_pred_ids_mask}
-
-"""
-def collate_voxelize(voxel_res, items):
-    get_tensors = lambda k: [torch.tensor(i[k]) for i in items]
-    to_tensor = lambda aa: [torch.tensor(a) for a in aa]
-    datas = [i['data'] for i in items]
-    pos = [d[:, 14:16] for d in datas]
-    ts = [i['ts'] for i in items]
-    ids = [i['ids'] for i in items]
-    posts = [np.concatenate([p, t[:, np.newaxis]], axis=1) for p,t in zip(pos, ts)]
-    quant_pts = list()
-    quant_ids = list()
-    quant_data = list()
-    for post, data, id_ in zip(posts, datas, ids):
-        q_pts, q_idxs = ME.utils.sparse_quantize(post, quantization_size=voxel_res, return_index=True)
-        quant_pts.append(q_pts)
-        quant_data.append(data[q_idxs])
-        quant_ids.append(id_[q_idxs])
-    padded_quant_pts, padded_quant_data = \
-        ME.utils.sparse_collate(quant_pts, quant_data)
-    padded_quant_ids, _ = ME.utils.sparse_collate([q[:, np.newaxis] for q in quant_ids], quant_data)
-    # Using ME.utils.sparse_collate breaks shit
-    all_ids = []
-    for batch_idx, ids in enumerate(quant_ids):
-        ids = np.array(ids)[:, np.newaxis]
-        batch_idxs = batch_idx*np.ones_like(ids)
-        comb = np.concatenate([batch_idxs, ids], axis=1)
-        all_ids.append(comb)
-    padded_quant_ids = torch.tensor(np.concatenate(all_ids), dtype=torch.long)
-    padded_mask = pad_tensors([torch.ones(i['data'].shape[0], dtype=torch.bool) for i in items])
-    return {'quant_data': padded_quant_data.float(),
-            'quant_pts': padded_quant_pts,
-            'quant_ids': padded_quant_ids,
-            'quant_mask': padded_mask,
-            **collate_pred(items)}
-"""
-
-if __name__ == '__main__':
-    ds = StarcraftDataset('data/sc2scene', max_hist=5, num_pred=4,
-                          hist_dist='fixed', pred_dist='fixed')
-    print(len(ds))
