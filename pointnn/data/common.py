@@ -19,7 +19,3 @@ def pad_tensors(ts, dims=None, value=0):
     goal_size = _goal_sizes(ts, dims)
     pad_t = [_pad_tensor(t, dims, goal_size, value) for t in ts]
     return torch.stack(pad_t)
-
-def stack_tensors(ts):
-    return torch.stack(ts)
-
