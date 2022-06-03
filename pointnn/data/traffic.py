@@ -1,46 +1,24 @@
 import pandas
 import csv
+import pyproj
+import math
 import torch
+
 from pathlib import Path
 from collections import namedtuple
 from itertools import product
 from functools import lru_cache, partial
-from scipy import linalg
-
-import numpy as np
-import pyproj
-import pickle
-import csv
-import math
 
 from .common import pad_tensors
-from ..nets.spectral import graph_laplacian, comb_laplacian, calc_spec
-
-data_base = Path('data/traffic')
-METR_base = data_base / 'METR-LA'
-METR_data_path = METR_base / 'metr-la.h5'
-METR_dist_path = METR_base / 'graph_sensor_locations.csv'
-
-PeMS_base = data_base / 'PeMS-BAY'
-PeMS_data_path = PeMS_base / 'pems-bay.h5'
-PeMS_adj_path = PeMS_base / 'adj_mx_bay.pkl'
-
-def load_pems():
-    with PeMS_data_path.open('rb') as fd:
-        df = pandas.read_hdf(fd)
 
 METREntry = namedtuple('METREntry', ('hist_rows', 'target_rows', 'center'))
 
+
 class METRDataset:
-    def __init__(self, base, date_fn, normalize, spectral, eig_dims=None):
+    def __init__(self, base, date_fn, normalize):
         self.normalize = normalize
         self._load_metr(Path(base))
         self._load_adj(Path(base))
-        if spectral:
-            lap = comb_laplacian(self.sensor_connected)
-            self.eig = calc_spec(lap, eig_dims)
-        else:
-            self.eig = None
         self._calc_entries(date_fn)
 
     def __getitem__(self, idx):
@@ -165,8 +143,7 @@ class METRDataset:
                 'tgt_id': tgt_idx_ids,
                 'tgt_pos': tgt_pos,
                 'tgt_data': tgt_data,
-                'norm_info': self.norm_info,
-                'eig': self.eig
+                'norm_info': self.norm_info
                }
 
     def _period_encode(self, t):
@@ -260,7 +237,6 @@ def collate(items):
     tgt_data = pad_tensors(get_tensors('tgt_data'))
     tgt_mask = pad_tensors([torch.ones(len(i['tgt_t']), dtype=torch.bool) for i in items])
     norm_info = torch.stack(get_tensors('norm_info'))
-    eig = items[0]['eig']
     return {'hist_t': hist_t,
             'hist_id': hist_id,
             'hist_pos': hist_pos,
@@ -274,8 +250,7 @@ def collate(items):
             'tgt_pos': tgt_pos,
             'tgt_data': tgt_data,
             'tgt_mask': tgt_mask,
-            'norm_info': norm_info,
-            'eig': eig
+            'norm_info': norm_info
             }
 
 def main():

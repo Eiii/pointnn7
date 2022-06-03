@@ -1,4 +1,4 @@
-from .common import pad_tensors, stack_tensors
+from .common import pad_tensors
 
 import pandas
 
@@ -416,9 +416,9 @@ def collate(items):
     station_idxs = pad_tensors(get_tensors('station_idxs'))
     tgt_station_idxs = pad_tensors(get_tensors('tgt_station_idxs'))
     times = pad_tensors(get_tensors('times'))
-    target = stack_tensors(get_tensors('target'))
-    target_q = stack_tensors(get_tensors('target_q'))
-    target_pos = stack_tensors(get_tensors('target_pos'))
+    target = torch.stack(get_tensors('target'))
+    target_q = torch.stack(get_tensors('target_q'))
+    target_pos = torch.stack(get_tensors('target_pos'))
     result = {'hist': hist.float(),
               'hist_q': hist_q.float(),
               'hist_mask': mask.bool(),

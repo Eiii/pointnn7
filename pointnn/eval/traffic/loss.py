@@ -19,14 +19,14 @@ def main(data_path, net_paths, baseline, bs, out_path):
     if baseline:
         models = [('Nearest', Nearest()), ('Mean', Mean())]
         for model_name, model in models:
-            prob = TrafficMETR(data_path, normalize=True, spectral=False)
+            prob = TrafficMETR(data_path, normalize=True)
             ds = prob.valid_dataset
             result = eval_model(ds, model, bs)
             loss_dict[model_name] = result
     else:
         for net_path in net_paths:
             print(net_path)
-            prob = TrafficMETR(data_path, normalize=True, spectral=False)
+            prob = TrafficMETR(data_path, normalize=True)
             ds = prob.valid_dataset
             net = make_net(net_path)
             result = eval_model(ds, net, bs)
