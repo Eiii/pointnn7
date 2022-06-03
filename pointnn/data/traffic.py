@@ -51,9 +51,9 @@ class METRDataset:
             data = list(reader)
         # from, to, cost
         data = [(int(x), int(y), float(z)) for x, y, z in data[1:]]
-        data = {(from_, to):cost for from_, to, cost in data}
+        data = {(from_, to): cost for from_, to, cost in data}
         sensor_ids = list(self.meta_df.index)
-        self.sensor_id_to_idx = {id_:idx for idx, id_ in enumerate(sensor_ids)}
+        self.sensor_id_to_idx = {id_: idx for idx, id_ in enumerate(sensor_ids)}
         num_sensors = len(sensor_ids)
         sensor_cost = torch.zeros(num_sensors, num_sensors, dtype=torch.float)
         sensor_connected = torch.zeros(num_sensors, num_sensors, dtype=torch.bool)
@@ -66,7 +66,6 @@ class METRDataset:
             sensor_cost[from_idx, to_idx] = cost
         self.sensor_connected = sensor_connected
         self.sensor_cost = sensor_cost
-
 
     def _filter_rows(self, fn):
         if fn is not None:
@@ -144,7 +143,7 @@ class METRDataset:
                 'tgt_pos': tgt_pos,
                 'tgt_data': tgt_data,
                 'norm_info': self.norm_info
-               }
+                }
 
     def _period_encode(self, t):
         hour = 60 // 5
@@ -206,13 +205,6 @@ class METRDataset:
         return valid_hist and valid_tgt
 
 
-class PEMSDataset:
-    def __init__(self, base):
-        pass
-
-    def __getitem__(self, idx):
-        pass
-
 def get_tensors_full(items, k):
     def ensure_tensor(t):
         if isinstance(t, torch.Tensor):
@@ -220,6 +212,7 @@ def get_tensors_full(items, k):
         else:
             return torch.tensor(t)
     return [ensure_tensor(i[k]) for i in items]
+
 
 def collate(items):
     get_tensors = partial(get_tensors_full, items)
@@ -252,17 +245,3 @@ def collate(items):
             'tgt_mask': tgt_mask,
             'norm_info': norm_info
             }
-
-def main():
-    from torch.utils.data import DataLoader
-    from itertools import islice
-    fn = lambda date: date.week % 2 == 0
-    ds = METRDataset('data/traffic/METR-LA', fn, True, True)
-    loader = DataLoader(ds, batch_size=5, collate_fn=collate)
-    for x in islice(loader, 5):
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        print('x')
-
-if __name__ == '__main__':
-    main()
-
