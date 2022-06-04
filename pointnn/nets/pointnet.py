@@ -5,29 +5,13 @@ import torch.nn.functional as F
 from ..utils import pairwise
 
 
-def flatten(t):
-    orig_prefix = t.size()[:-1]
-    flat_t = t.view(-1, t.size(-1))
-    return flat_t, orig_prefix
-
-def restore(flat_t, orig_prefix):
-    new_size = orig_prefix+(flat_t.size(-1),)
-    return flat_t.view(*new_size)
-
-
 class SetTransform(nn.Module):
     def __init__(self, in_size, out_size, hidden_sizes,
-                 reduction, deepsets=False):
+                 reduction):
         super().__init__()
         assert reduction in ('none', 'max', 'sum')
         self.reduction = reduction
         self._create_layers(in_size, hidden_sizes, out_size)
-        self.deepsets = deepsets
-        if deepsets:
-            self.gammas = nn.Parameter(torch.Tensor(len(self.mlps)))
-            nn.init.normal_(self.gammas)
-        else:
-            self.gammas = [None]*len(self.mlps)
 
     def _create_layers(self, in_size, hidden_sizes, out_size):
         self.mlps = nn.ModuleList()
@@ -37,7 +21,7 @@ class SetTransform(nn.Module):
             self.mlps.append(nn.Linear(in_, out_))
 
     def pointwise_transform(self, x):
-        def _apply(x, mlp, norm, gamma, relu):
+        def _apply(x, mlp, norm, relu):
             # Linear can work with B x ... x C
             # BN1D requires B x C
             # Flatten the extra dimensions into B and restore them to keep
@@ -46,17 +30,14 @@ class SetTransform(nn.Module):
             norm_flat_x = norm(flat_x)
             norm_x = restore(norm_flat_x, orig_prefix)
             out_x = mlp(norm_x)
-            if gamma:
-                reduced = self.reduce(out_x, 'max')
-                out_x += gamma * reduced.unsqueeze(-2)
             if relu:
                 out_x = F.relu(out_x)
             return out_x
-        layer_groups = list(zip(self.mlps, self.norms, self.gammas))
-        for mlp, norm, gamma in layer_groups[:-1]:
-            x = _apply(x, mlp, norm, gamma, True)
-        for mlp, norm,  gamma in layer_groups[-1:]:
-            x = _apply(x, mlp, norm, gamma, False)
+        layer_groups = list(zip(self.mlps, self.norms))
+        for mlp, norm in layer_groups[:-1]:
+            x = _apply(x, mlp, norm, True)
+        for mlp, norm in layer_groups[-1:]:
+            x = _apply(x, mlp, norm, False)
         return x
 
     def reduce(self, x, reduction=None):
@@ -72,3 +53,14 @@ class SetTransform(nn.Module):
         xf_feats = self.pointwise_transform(set_feats)
         final_feats = self.reduce(xf_feats)
         return final_feats
+
+
+def flatten(t):
+    orig_prefix = t.size()[:-1]
+    flat_t = t.view(-1, t.size(-1))
+    return flat_t, orig_prefix
+
+
+def restore(flat_t, orig_prefix):
+    new_size = orig_prefix+(flat_t.size(-1),)
+    return flat_t.view(*new_size)
