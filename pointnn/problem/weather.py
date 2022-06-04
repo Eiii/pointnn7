@@ -1,29 +1,10 @@
 from .base import Problem
-from ..data.weather import WeatherDataset, collate#, collate_voxelize
+from ..data.weather import WeatherDataset, collate
 
 import torch
 import torch.nn.functional as F
 
-import functools
-
-
 DEF_TARGETS = ['RELH', 'TAIR', 'WSPD', 'PRES']
-
-
-def scaled_loss(base_dataset, target, pred):
-    ranges = [torch.tensor(x) for x in base_dataset.target_ranges()]
-    expand = lambda t: t.view(1, 1, -1).to(pred.device)
-    low, high = [expand(t) for t in ranges]
-    diff = high-low
-    rescale = lambda t: ((t-low)/diff)-0.5
-    scaled_target = rescale(target)
-    scaled_pred = rescale(pred)
-    loss = F.mse_loss(scaled_target, scaled_pred, reduction='none')
-    return loss
-
-def flat_loss(base_dataset, target, pred):
-    loss = F.mse_loss(target, pred, reduction='none')
-    return loss
 
 
 class Weather(Problem):
@@ -43,6 +24,22 @@ class Weather(Problem):
         self.valid_dataset = self.base_dataset.test_dataset
         self.collate_fn = collate
 
-
     def loss(self, item, pred):
         return scaled_loss(self.base_dataset, item['target'], pred).mean()
+
+
+def scaled_loss(base_dataset, target, pred):
+    ranges = [torch.tensor(x) for x in base_dataset.target_ranges()]
+    expand = lambda t: t.view(1, 1, -1).to(pred.device)
+    low, high = [expand(t) for t in ranges]
+    diff = high-low
+    rescale = lambda t: ((t-low)/diff)-0.5
+    scaled_target = rescale(target)
+    scaled_pred = rescale(pred)
+    loss = F.mse_loss(scaled_target, scaled_pred, reduction='none')
+    return loss
+
+
+def flat_loss(base_dataset, target, pred):
+    loss = F.mse_loss(target, pred, reduction='none')
+    return loss
