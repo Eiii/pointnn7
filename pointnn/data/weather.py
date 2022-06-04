@@ -1,22 +1,19 @@
 from .common import pad_tensors
 
-import pandas
-
 import random
 import datetime
 import pickle
 import functools
+
 from pathlib import Path
-from time import time
 from itertools import islice, product
 
-import torch
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
-
-#import MinkowskiEngine as ME
-
+import pandas
 import pyproj
+
+import torch
+from torch.utils.data import Dataset
+
 
 ALL_DATA_COLS = ['RELH', 'TAIR', 'WSPD', 'WVEC', 'WDIR', 'WDSD', 'WSSD',
                  'WMAX', 'PRES', 'SRAD', 'TA9M', 'WS2M']
@@ -44,7 +41,7 @@ class WeatherDataset:
                  load_train=True, load_test=True,
                  drop=None,
                  HACK_SNIP=None):
-        assert time_off%5 == 0 and time_off > 0
+        assert time_off % 5 == 0 and time_off > 0
         self.target_cols = target_cols
         self.seed = seed
         self.time_off = _mins(time_off)
@@ -68,7 +65,6 @@ class WeatherDataset:
             self.test_idxs = self._calc_test_keys(train_stations, self.test_stations)
             self.test_dataset = _TestView(self)
 
-
     def _load_metadata(self, path):
         """ Reads the station metadata file from `path` into `self.raw_metadta`
         """
@@ -76,20 +72,18 @@ class WeatherDataset:
         df = pandas.read_csv(path, index_col='stid')
         self.raw_metadata = df
 
-
     def _project_latlon(self):
         """ Add X and Y coordinates (in meters) to the station metadata.
         Lat/lon are bad at representing relative distances. Instead, use a map
         projection optimized to preserve distances at the area of interest.
         """
-        utm = pyproj.CRS.from_epsg(3721) # UTM 14N - Covers most of Oklahoma
+        utm = pyproj.CRS.from_epsg(3721)  # UTM 14N - Covers most of Oklahoma
         tf = pyproj.Transformer.from_crs(utm.geodetic_crs, utm)
         latlon = self.raw_metadata[['nlat', 'elon']]
         proj_row = lambda r: pandas.Series(tf.transform(*r), index=['x_m', 'y_m'])
         xy = latlon.apply(proj_row, axis=1)
-        xy -= xy.mean() #Recenter so mean position is 0 (note: only for numeric precision)
+        xy -= xy.mean()  # Recenter so mean position is 0 (note: only for numeric precision)
         self.raw_metadata = pandas.concat([self.raw_metadata, xy], axis=1)
-
 
     def _load_data(self, path, cache=True):
         """ Reads measurements CSV from `path` into `self.raw_data`
@@ -118,7 +112,6 @@ class WeatherDataset:
             self.allowed_raw_idxs = set(idxs[:count])
         self.raw_data = self.raw_data.sort_index()
 
-
     def _calc_train_keys(self, stations, num_target_stations):
         """ Precalculate a list of all keys that can be used to quickly fetch &
         construct each training item.
@@ -141,7 +134,6 @@ class WeatherDataset:
                                         hist_times, target_times)
         return keys
 
-
     def _calc_test_keys(self, hist_stations, target_stations):
         """ Same as `_calc_train_keys`. The train/target split is provided. """
         print('Calculating test indexes...')
@@ -154,7 +146,6 @@ class WeatherDataset:
             keys += self._make_keys(hist_stations, target_stations, hist_times,
                                     target_times)
         return keys
-
 
     def _make_keys(self, hist_stations, target_stations, hist_times,
                    target_times):
@@ -178,7 +169,6 @@ class WeatherDataset:
         else:
             return []
 
-
     def _filter_quality(self, keys, cols):
         q = self._get_row_qual(keys, cols)
         bad_quals = [1, 2, 3, 8, 9, -9]
@@ -186,21 +176,18 @@ class WeatherDataset:
         good = is_bad[~is_bad].index
         return list(good)
 
-
     def _fetch_rows(self, stations, times, drop_rows=True):
         raw_times = [self._time_to_tuple(t) for t in times]
-        keys = [(a,)+b for a,b in product(stations, raw_times)]
+        keys = [(a,)+b for a, b in product(stations, raw_times)]
         present_keys = [k for k in keys if k in self.raw_data.index]
         if self.drop and drop_rows:
             present_keys = [k for k in keys if k in self.allowed_raw_idxs]
         return present_keys
 
-
     @staticmethod
     def _time_to_tuple(time):
         clock = time.strftime("%H%M")
         return (time.year, time.month, time.day, int(clock))
-
 
     def _calc_periods(self, step=5):
         min_step = step*_mins(5)
@@ -219,14 +206,12 @@ class WeatherDataset:
             time += min_step
         return periods
 
-
     def _calc_period(self, start):
         # Make hist
         hist_times = [start+i*self.time_off for i in range(self.hist_count)]
         end = hist_times[-1]
         target_times = [end]
         return hist_times, target_times
-
 
     @staticmethod
     def _calc_time(row):
@@ -235,7 +220,6 @@ class WeatherDataset:
         time_str = '{:04d}'.format(time)
         return _parse_time_str(date_str, time_str)
 
-
     @staticmethod
     def _calc_time_key(key):
         _, yr, mth, day, time_num = key
@@ -243,14 +227,11 @@ class WeatherDataset:
         time_str = f"{time_num:04d}"
         return _parse_time_str(date_str, time_str)
 
-
-
     def _find_valid_stations(self):
         all_stations = {s[0] for s in self.raw_data.index}
         is_valid_md = lambda s: (self.raw_metadata.loc[s, STATION_METADATA] != -999).all()
         valid_metadata = [s for s in all_stations if is_valid_md(s)]
         return valid_metadata
-
 
     def _split_stations(self, stations, pct):
         assert 0 < pct < 1
@@ -261,11 +242,9 @@ class WeatherDataset:
         test, train = all_stats[:test_count], all_stats[test_count:]
         return train, test
 
-
     @staticmethod
     def _len(idxs):
         return len(idxs)
-
 
     def _getitem(self, idxs):
         stations, hist_times, hist_idxs, target_stations, target_idxs = idxs
@@ -290,12 +269,10 @@ class WeatherDataset:
                 'hist_q': hist_q,
                 'target_q': target_q}
 
-
     def _get_row_data(self, row_keys, cols=None):
         rows = self.raw_data.loc[row_keys]
         cols = cols or ALL_DATA_COLS
         return rows[cols]
-
 
     def _get_row_qual(self, row_keys, cols=None):
         rows = self.raw_data.loc[row_keys]
@@ -305,24 +282,20 @@ class WeatherDataset:
             cols = [f'Q{c}' for c in cols]
         return rows[cols]
 
-
     def _get_metadata(self, stations):
         rows = self.raw_metadata.loc[stations]
         cols = STATION_METADATA
         return rows[cols]
-
 
     def _get_station_position(self, stations):
         rows = self.raw_metadata.loc[stations]
         cols = POSITION_METADATA
         return rows[cols]
 
-
     def target_ranges(self):
         if not hasattr(self, '_target_ranges'):
             self._target_ranges = self._calc_target_ranges()
         return self._target_ranges
-
 
     def _calc_target_ranges(self):
         target_data = self.raw_data[self.target_cols]
@@ -335,10 +308,8 @@ class _TestView(Dataset):
     def __init__(self, ds):
         self.ds = ds
 
-
     def __len__(self):
         return self.ds._len(self.ds.test_idxs)
-
 
     def __getitem__(self, i):
         return self.ds._getitem(self.ds.test_idxs[i])
@@ -348,10 +319,8 @@ class _TrainView(Dataset):
     def __init__(self, ds):
         self.ds = ds
 
-
     def __len__(self):
         return self.ds._len(self.ds.train_idxs)
-
 
     def __getitem__(self, i):
         return self.ds._getitem(self.ds.train_idxs[i])
@@ -363,13 +332,11 @@ class Anomaly(Dataset):
         self.anom_test_idxs = self._pick_anoms()
         self._add_anoms()
 
-
     def _pick_anoms(self, pct=0.3):
         src = [i for i in self.ds.raw_data.index if i[0] in self.ds.test_stations]
         count = int(pct*len(src))
         random.shuffle(src)
         return src[:count]
-
 
     def _add_anoms(self):
         split = lambda a, n: [a[i::n] for i in range(n)]
@@ -378,15 +345,12 @@ class Anomaly(Dataset):
             self._add_offset(idxs[2*i],   col,  0.25)
             self._add_offset(idxs[2*i+1], col, -0.25)
 
-
     def _add_offset(self, keys, col, amt=0.25):
         low, high = [x[col] for x in self.ds.target_ranges()]
         self.ds.raw_data.loc[keys, col] += amt * (high-low)
 
-
     def __len__(self):
         return self.ds._len(self.ds.test_idxs)
-
 
     def __getitem__(self, i):
         idx = self.ds.test_idxs[i]
@@ -434,59 +398,3 @@ def collate(items):
         anom = pad_tensors(get_tensors('is_anom'))
         result['is_anom'] = anom.bool()
     return result
-
-"""
-def collate_voxelize(voxel_res, items):
-    voxelize = lambda t: (t/voxel_res).int()
-    prep = lambda x: x.to_numpy() if type(x) == pandas.DataFrame else x
-    get_tensors = lambda k: [torch.tensor(prep(i[k])) for i in items]
-    all_pos = []
-    all_hist = []
-    all_target = []
-    for batch_idx, item in enumerate(items):
-        station_meta = torch.tensor(item['station_metadata'].to_numpy())
-        station_pos = torch.tensor(item['station_pos'].to_numpy())
-        target_pos = torch.tensor(item['target_pos'].to_numpy())
-        station_pos = station_pos[:, 0:2] # ignore elevation
-        target_pos = target_pos[:, 0:2]
-        quant_station_pos = voxelize(station_pos)
-        quant_target_pos = voxelize(target_pos)
-        size = (quant_target_pos.size(0), 1)
-        target_times = torch.zeros(*size, dtype=torch.int)
-        batch_ = batch_idx*torch.ones(*size, dtype=torch.int)
-        combined_target_pos = torch.cat((batch_, quant_target_pos, target_times), dim=-1)
-        entry_idxs = item['station_idxs']
-        entry_pos = quant_station_pos[entry_idxs]
-        times = torch.tensor(item['times'], dtype=torch.int).unsqueeze(-1)
-        combined_pos = torch.cat((entry_pos, times), dim=-1)
-        hist = torch.tensor(item['hist'].to_numpy())
-        entry_meta = station_meta[entry_idxs]
-        combined_hist = torch.cat((hist, entry_meta), dim=-1)
-        all_pos.append(combined_pos)
-        all_hist.append(combined_hist)
-        all_target.append(combined_target_pos)
-    padded_pos, padded_hist = ME.utils.sparse_collate(all_pos, all_hist)
-    padded_target_pos = torch.cat(all_target, dim=0)
-    return {'station_pos_quant': padded_pos,
-            'hist_quant': padded_hist.float(),
-            'target_pos_quant': padded_target_pos,
-            **collate(items)}
-"""
-
-""" Debug tools """
-
-def get_latlons(ds):
-    meta = ds.raw_metadata[['nlat', 'elon']]
-    print('Min:')
-    print(meta.min())
-    print('Mean:')
-    print(meta.mean())
-    print('Max:')
-    print(meta.max())
-
-if __name__ == '__main__':
-    ds = WeatherDataset('./data/weather', HACK_SNIP=1000)
-    train = ds.train_dataset
-    test = ds.test_dataset
-    print(len(train), len(test))
-    import pdb ; pdb.set_trace()
