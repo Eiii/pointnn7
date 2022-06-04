@@ -31,15 +31,16 @@ class _TrafficCommon(Network):
 
 class TrafficTPC(_TrafficCommon):
     tpc_class = tpc.TemporalPointConv
+
     def __init__(self,
-                 neighborhood_sizes = [2**4, 2**5, 2**5],
-                 latent_sizes = [2**5, 2**6, 2**6],
-                 target_size = 2**6,
-                 combine_hidden = [2**6, 2**6],
-                 weight_hidden = [2**5, 2**5],
-                 c_mid = 2**5,
-                 final_hidden = [2**6, 2**6],
-                 decode_hidden = [2**6, 2**6, 2**6],
+                 neighborhood_sizes=[2**4, 2**5, 2**5],
+                 latent_sizes=[2**5, 2**6, 2**6],
+                 target_size=2**6,
+                 combine_hidden=[2**6, 2**6],
+                 weight_hidden=[2**5, 2**5],
+                 c_mid=2**5,
+                 final_hidden=[2**6, 2**6],
+                 decode_hidden=[2**6, 2**6, 2**6],
                  neighbors=8, timesteps=12,
                  mean_delta=False,
                  heads=0):

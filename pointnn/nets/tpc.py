@@ -142,7 +142,6 @@ class TemporalGraphConv(nn.Module):
         self.time_convs = nn.ModuleList()
         self.combine_mlps = nn.ModuleList()
         in_size = feat_size
-        neighbor_attn = 0
         default_args = {}
         assert len(latent_sizes) == len(neighborhood_sizes)
         for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
@@ -177,7 +176,6 @@ class TemporalGraphConv(nn.Module):
                 'rel_size': rel_size, 'neighbor_count': nc}
         self.target_conv = graphconv.GraphConv(**args)
 
-#TODO: Added target_pts
     def forward(self, data, ids, space_pts, time_pts, target_pts, query_pts,
                 space_dist_fn=None, time_dist_fn=None, target_dist_fn=None,
                 space_dist_data=None, time_dist_data=None, target_dist_data=None):
