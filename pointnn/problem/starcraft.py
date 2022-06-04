@@ -1,15 +1,14 @@
 from .base import Problem
-from ..data.starcraft import StarcraftDataset, parse_frame, collate#, collate_voxelize
-
-import functools
+from ..data.starcraft import StarcraftDataset, parse_frame, collate
 
 import torch
 import torch.nn.functional as F
 
+
 class StarcraftScene(Problem):
     def __init__(self, data_path, max_hist=1, num_pred=1, max_files=None,
                  hist_dist=None, pred_dist=None, hist_dist_args=None, pred_dist_args=None,
-                 voxel_res=None, frame_skip=2):
+                 frame_skip=2):
         # Load training & test dataset
         args = {'max_files': max_files, 'max_hist': max_hist, 'num_pred': num_pred,
                 'hist_dist': hist_dist, 'pred_dist': pred_dist,
@@ -17,19 +16,17 @@ class StarcraftScene(Problem):
                 'frame_skip': frame_skip}
         self.train_dataset = StarcraftDataset(data_path, **args)
         self.valid_dataset = StarcraftDataset(data_path+'/test', **args)
-        if voxel_res is None:
-            self.collate_fn = collate
-        else:
-            vres = [voxel_res, voxel_res, 1]
-            #self.collate_fn = functools.partial(collate_voxelize, vres)
+        self.collate_fn = collate
 
     def loss(self, item, pred):
         l = sc2_frame_loss(item, pred)
         avg_loss = l.sum() / unit_count(item)
         return avg_loss
 
+
 def unit_count(item):
     return (item['pred_ts_mask'].unsqueeze(-1)*item['pred_ids_mask'].unsqueeze(-2)).sum()
+
 
 def sc2_frame_loss(item, pred, reduction='sum'):
     target = parse_frame(item['pred_data'])
@@ -62,11 +59,13 @@ def sc2_frame_loss(item, pred, reduction='sum'):
         out = torch.cat([unit_loss, alive_losses.unsqueeze(-1)], dim=-1)
         return out
 
+
 def get_pred_ts(item):
     valid_mask = item['pred_ts_mask'].unsqueeze(-1) * item['pred_ids_mask'].unsqueeze(-2)
     exp_ts = item['pred_ts'].unsqueeze(-1).expand(-1, -1, item['pred_ids_mask'].size(-1))
     flat_ts = torch.masked_select(exp_ts, valid_mask)
     return flat_ts
+
 
 def get_alive(item):
     target = parse_frame(item['pred_data'])
