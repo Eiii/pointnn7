@@ -326,41 +326,6 @@ class _TrainView(Dataset):
         return self.ds._getitem(self.ds.train_idxs[i])
 
 
-class Anomaly(Dataset):
-    def __init__(self, ds):
-        self.ds = ds
-        self.anom_test_idxs = self._pick_anoms()
-        self._add_anoms()
-
-    def _pick_anoms(self, pct=0.3):
-        src = [i for i in self.ds.raw_data.index if i[0] in self.ds.test_stations]
-        count = int(pct*len(src))
-        random.shuffle(src)
-        return src[:count]
-
-    def _add_anoms(self):
-        split = lambda a, n: [a[i::n] for i in range(n)]
-        idxs = split(self.anom_test_idxs, 2*len(self.ds.target_cols))
-        for i, col in enumerate(self.ds.target_cols):
-            self._add_offset(idxs[2*i],   col,  0.25)
-            self._add_offset(idxs[2*i+1], col, -0.25)
-
-    def _add_offset(self, keys, col, amt=0.25):
-        low, high = [x[col] for x in self.ds.target_ranges()]
-        self.ds.raw_data.loc[keys, col] += amt * (high-low)
-
-    def __len__(self):
-        return self.ds._len(self.ds.test_idxs)
-
-    def __getitem__(self, i):
-        idx = self.ds.test_idxs[i]
-        _, _, _, _, target_idxs = idx
-        item = self.ds._getitem(idx)
-        is_anom = [i in self.anom_test_idxs for i in target_idxs]
-        item['is_anom'] = is_anom
-        return item
-
-
 def make_mask(hists):
     masks = []
     for h in hists:
