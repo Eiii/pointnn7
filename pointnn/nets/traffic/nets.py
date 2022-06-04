@@ -81,10 +81,6 @@ class TrafficTPC(_TrafficCommon):
         return pred
 
 
-class TrafficTPCNoSpace(TrafficTPC):
-    tpc_class = tpc.TPCNoSpace
-
-
 class TrafficInteraction(_TrafficCommon):
     int_class = intr.TemporalInteraction
     def __init__(self,
@@ -132,10 +128,6 @@ class TrafficInteraction(_TrafficCommon):
             means = self._calc_means(tgt_id, hist_id, hist_data)
             pred = pred+means.unsqueeze(-1)
         return pred
-
-
-class TrafficIntNoSpace(TrafficInteraction):
-    int_class = intr.TIntNoSpace
 
 
 class TrafficGraphConv(Network):
