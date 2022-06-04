@@ -5,7 +5,6 @@ from .pointnet import SetTransform
 from .pointconv import calc_neighbor_info
 
 
-# TODO: unused params?
 class TemporalInteraction(nn.Module):
     def __init__(self,
                  feat_size,
@@ -35,7 +34,6 @@ class TemporalInteraction(nn.Module):
         self.time_convs = nn.ModuleList()
         self.combine_mlps = nn.ModuleList()
         in_size = feat_size
-        neighbor_attn = 0
         default_args = {'edge_hidden': edge_hidden}
         assert len(latent_sizes) == len(neighborhood_sizes)
         for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
@@ -57,7 +55,7 @@ class TemporalInteraction(nn.Module):
             pn = SetTransform(**mlp_args)
             self.combine_mlps.append(pn)
             in_size = ls
-        # Target conv
+        # Target
         if self.query_type == 'time':
             query_dim = self.time_encoder.out_dim
             query_encoder = self.time_encoder
@@ -102,13 +100,14 @@ class TemporalInteraction(nn.Module):
         return key_feats
 
     def encode_queries(self, data, ts, query_ts, target_dist_fn, target_dist_data):
-        if self.query_type == 'time': #HACK
+        if self.query_type == 'time':
             enc_ts = self.time_encoder.encode(ts.view([*ts.shape, 1, 1])).squeeze(-2)
         elif self.query_type == 'space':
             enc_ts = ts
         target_in = torch.cat([enc_ts, data], dim=-1)
         target_feats = self.target_conv(query_ts, ts, target_in, target_dist_fn, target_dist_data)
         return target_feats
+
 
 class TIntNoSpace(nn.Module):
     def __init__(self,
@@ -139,7 +138,6 @@ class TIntNoSpace(nn.Module):
         self.time_convs = nn.ModuleList()
         self.combine_mlps = nn.ModuleList()
         in_size = feat_size
-        neighbor_attn = 0
         default_args = {'edge_hidden': edge_hidden}
         assert len(latent_sizes) == len(neighborhood_sizes)
         for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
@@ -202,7 +200,7 @@ class TIntNoSpace(nn.Module):
         return key_feats
 
     def encode_queries(self, data, ts, query_ts, target_dist_fn, target_dist_data):
-        if self.query_type == 'time': #HACK
+        if self.query_type == 'time':
             enc_ts = self.time_encoder.encode(ts.view([*ts.shape, 1, 1])).squeeze(-2)
         elif self.query_type == 'space':
             enc_ts = ts
