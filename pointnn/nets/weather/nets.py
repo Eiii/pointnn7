@@ -1,8 +1,10 @@
-from . import pointnet
-from . import encodings
-from . import tpc
-from . import interaction as intr
-from .base import Network
+from .. import pointnet
+from .. import encodings
+from .. import tpc
+from .. import interaction as intr
+from ..base import Network
+
+from . import dists
 
 from functools import partial
 
@@ -11,78 +13,6 @@ import torch
 HIST_FEAT_SIZE = 12
 METADATA_SIZE = 19
 
-
-def cross(t1, t2=None, dims=(2, 1)):
-    if t2 is None:
-        t2 = t1
-    _t1 = t1.unsqueeze(dims[0])
-    _t2 = t2.unsqueeze(dims[1])
-    return _t1, _t2
-
-
-def space_dist(mask, station_idx, times, allowed_neighbors, keys, points):
-    # mask, station_idx, times:
-    # BS x Entries
-    # keys, points:
-    # BS x Entries x 3
-    # Calculate relative distances
-    keys_e, pts_e = cross(keys, points)
-    dist_vec = (keys_e - pts_e)
-    sqr_dist = (dist_vec**2).sum(dim=-1)
-    # Calculate valid neighbors
-    times1, times2 = cross(times)
-    same_time = (times1 == times2)
-    sidx1, sidx2 = cross(station_idx)
-    diff_stat = (sidx1 != sidx2)
-    mask1, mask2 = cross(mask)
-    cross_mask = mask1 * mask2
-    valid = cross_mask * diff_stat * same_time
-    if allowed_neighbors is not None:
-        valid *= allowed_neighbors
-    return valid, dist_vec, sqr_dist
-
-
-def time_dist(mask, station_idx, allowed_neighbors, time_enc, keys, points):
-    # mask, station_idx, times:
-    # BS x Entries
-    # keys, points:
-    # BS x Entries x 3
-    # Calculate relative distances
-    keys_e, pts_e = cross(keys, points)
-    dist_vec = (keys_e - pts_e).unsqueeze(-1)
-    sqr_dist = (dist_vec**2).sum(dim=-1)
-    # Calculate valid neighbors
-    diff_time = (keys_e != pts_e)
-    sidx1, sidx2 = cross(station_idx)
-    same_stat = (sidx1 == sidx2)
-    mask1, mask2 = cross(mask)
-    cross_mask = mask1 * mask2
-    valid = cross_mask * same_stat * diff_time
-    if allowed_neighbors is not None:
-        valid *= allowed_neighbors
-    return valid, time_enc(dist_vec), sqr_dist
-
-
-def target_dist(mask, times, allowed_neighbors, keys, points):
-    # mask, station_idx, times:
-    # BS x Entries
-    # keys:
-    # BS x Targets x 3
-    # points:
-    # BS x Entries x 3
-    # Calculate relative distances
-    keys_e, pts_e = cross(keys, points)
-    dist_vec = (keys_e - pts_e)
-    sqr_dist = (dist_vec**2).sum(dim=-1)
-    # Calculate valid neighbors
-    times1, times2 = cross(times)
-    at_target = (times.unsqueeze(1)==0)
-    mask = mask.unsqueeze(1)
-    valid = mask * at_target
-    if allowed_neighbors is not None:
-        valid *= allowed_neighbors
-    valid, _ = torch.broadcast_tensors(valid, sqr_dist)
-    return valid, dist_vec, sqr_dist
 
 class _WeatherBase(Network):
     def forward(self, hist, mask, times, station_meta, station_pos,
@@ -165,12 +95,13 @@ class WeatherTPC(_WeatherBase):
         hist_pts = self._get_by_idx(station_idxs, station_pos)
         hist_meta = self._get_by_idx(station_idxs, station_meta)
         in_ = torch.cat([hist, hist_meta], dim=2)
-        space_dist_fn = partial(space_dist, mask, station_idxs, times, allowed)
-        time_dist_fn = partial(time_dist, mask, station_idxs, allowed, self.time_encoder.encode)
-        target_dist_fn = partial(target_dist, mask, times, target_allowed)
+        space_dist_fn = partial(dists.space, mask, station_idxs, times, allowed)
+        time_dist_fn = partial(dists.time, mask, station_idxs, allowed, self.time_encoder.encode)
+        target_dist_fn = partial(dists.target, mask, times, target_allowed)
         tgt_feats = self.tpc(in_, None, hist_pts, times, target_pos,
                              space_dist_fn, time_dist_fn, target_dist_fn)
         return tgt_feats
+
 
 class WeatherGC(_WeatherBase):
     def __init__(self,
@@ -206,12 +137,13 @@ class WeatherGC(_WeatherBase):
         hist_pts = self._get_by_idx(station_idxs, station_pos)
         hist_meta = self._get_by_idx(station_idxs, station_meta)
         in_ = torch.cat([hist, hist_meta], dim=2)
-        space_dist_fn = partial(space_dist, mask, station_idxs, times, allowed)
-        time_dist_fn = partial(time_dist, mask, station_idxs, allowed, self.time_encoder.encode)
-        target_dist_fn = partial(target_dist, mask, times, target_allowed)
+        space_dist_fn = partial(dist.space, mask, station_idxs, times, allowed)
+        time_dist_fn = partial(dist.time, mask, station_idxs, allowed, self.time_encoder.encode)
+        target_dist_fn = partial(dist.target, mask, times, target_allowed)
         tgt_feats = self.tgc(in_, None, hist_pts, times, hist_pts, target_pos,
                              space_dist_fn, time_dist_fn, target_dist_fn)
         return tgt_feats
+
 
 class WeatherInteraction(_WeatherBase):
     def __init__(self,
@@ -249,9 +181,9 @@ class WeatherInteraction(_WeatherBase):
         hist_pts = self._get_by_idx(station_idxs, station_pos)
         hist_meta = self._get_by_idx(station_idxs, station_meta)
         in_ = torch.cat([hist, hist_meta], dim=2)
-        space_dist_fn = partial(space_dist, mask, station_idxs, times, allowed)
-        time_dist_fn = partial(time_dist, mask, station_idxs, allowed, self.time_encoder.encode)
-        target_dist_fn = partial(target_dist, mask, times, target_allowed)
+        space_dist_fn = partial(dist.space, mask, station_idxs, times, allowed)
+        time_dist_fn = partial(dist.time, mask, station_idxs, allowed, self.time_encoder.encode)
+        target_dist_fn = partial(dist.target, mask, times, target_allowed)
         tgt_feats = self.int(in_, None, hist_pts, times, target_pos,
                              space_dist_fn, time_dist_fn, target_dist_fn)
         return tgt_feats
