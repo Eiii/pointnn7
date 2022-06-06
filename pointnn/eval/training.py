@@ -37,7 +37,6 @@ def plot_curves(measures, out_path, valid, smooth):
         ys = np.stack([y for y in ys if len(y) == max_len])
         ts = [t for t in ts if len(x) == max_len]
         xs = xs.mean(0)
-        errs = 1.96*np.std(ys, axis=0)/np.sqrt(ys.shape[0])
         ys = np.mean(ys, axis=0)
         if smooth > 1:
             vs = []
@@ -47,7 +46,6 @@ def plot_curves(measures, out_path, valid, smooth):
             xs = xs[:ys.size]
         main_plot = ax.plot(xs, ys, label=name)
         main_color = main_plot[-1].get_color()
-        #ax.fill_between(xs, ys+errs, ys-errs, color=main_color, alpha=0.25)
 
         # Training loss
         if valid:
