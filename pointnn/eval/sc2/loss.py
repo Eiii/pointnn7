@@ -49,11 +49,11 @@ def group_result(paths):
             data.update(d)
     net_types = {net_type(p) for p in data}
     for n_type in net_types:
-        net_data = {k:v for k,v in data.items() if net_type(k)==n_type}
-        net_counts = {k:param_count(k) for k in net_data}
+        net_data = {k: v for k, v in data.items() if net_type(k) == n_type}
+        net_counts = {k: param_count(k) for k in net_data}
         for net_count in set(net_counts.values()):
-            ns = {n for n,c in net_counts.items() if c==net_count}
-            lcl_nets = {k:v for k,v in data.items() if k in ns}
+            ns = {n for n, c in net_counts.items() if c == net_count}
+            lcl_nets = {k: v for k, v in data.items() if k in ns}
             losses = [x['losses'] for x in lcl_nets.values()]
             ts = [x['ts'] for x in lcl_nets.values()]
             alive = [x['alive'] for x in lcl_nets.values()]
@@ -69,7 +69,7 @@ def plot(paths):
     result = group_result(paths)
     net_types = {k[0] for k in result}
     for net_type in net_types:
-        counts = {k[1] for k in result if k[0]==net_type}
+        counts = {k[1] for k in result if k[0] == net_type}
         plot_data = []
         for count in sorted(counts):
             d_key = (net_type, count)
@@ -155,9 +155,9 @@ def make_parser():
     parser.add_argument('--t', type=int, default=None)
     parser.add_argument('--out', default='sc-loss.pkl')
     parser.add_argument('--net', nargs='+')
-    parser.add_argument('--plot', action='store_true')
     parser.add_argument('--bs', type=int, default=32)
     return parser
+
 
 def make_plot_parser():
     parser = argparse.ArgumentParser()
