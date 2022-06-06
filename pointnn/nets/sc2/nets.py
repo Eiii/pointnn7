@@ -1,6 +1,5 @@
 from . import dists
 from .. import tpc
-from .. import interaction as intr
 from .. import encodings
 from ..base import Network
 from ...data.starcraft import parse_frame
@@ -131,10 +130,10 @@ class SC2Interaction(_SC2Common):
                  latent_sizes, neighborhood_sizes, neighbors,
                  timesteps, combine_hidden, target_size, pos_dim,
                  time_encoder):
-        self.int = intr.TemporalInteraction(feat_size, edge_hidden,
-                                            latent_sizes, neighborhood_sizes, neighbors,
-                                            timesteps, combine_hidden, target_size, pos_dim,
-                                            time_encoder)
+        self.int = tpc.TemporalInteraction(feat_size, edge_hidden,
+                                           latent_sizes, neighborhood_sizes, neighbors,
+                                           timesteps, combine_hidden, target_size, pos_dim,
+                                           time_encoder)
 
     def run_tpc(self, data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn):
         out = self.int(data, ids, pos, ts, flat_pred_ts, space_dist_fn, time_dist_fn, target_dist_fn)

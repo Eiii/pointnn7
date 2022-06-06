@@ -1,7 +1,6 @@
 from .. import pointnet
 from .. import encodings
 from .. import tpc
-from .. import interaction as intr
 from ..base import Network
 
 from . import dists
@@ -137,9 +136,9 @@ class WeatherGC(_WeatherBase):
         hist_pts = self._get_by_idx(station_idxs, station_pos)
         hist_meta = self._get_by_idx(station_idxs, station_meta)
         in_ = torch.cat([hist, hist_meta], dim=2)
-        space_dist_fn = partial(dist.space, mask, station_idxs, times, allowed)
-        time_dist_fn = partial(dist.time, mask, station_idxs, allowed, self.time_encoder.encode)
-        target_dist_fn = partial(dist.target, mask, times, target_allowed)
+        space_dist_fn = partial(dists.space, mask, station_idxs, times, allowed)
+        time_dist_fn = partial(dists.time, mask, station_idxs, allowed, self.time_encoder.encode)
+        target_dist_fn = partial(dists.target, mask, times, target_allowed)
         tgt_feats = self.tgc(in_, None, hist_pts, times, hist_pts, target_pos,
                              space_dist_fn, time_dist_fn, target_dist_fn)
         return tgt_feats
@@ -171,19 +170,19 @@ class WeatherInteraction(_WeatherBase):
                       latent_sizes, neighbors, timesteps, target_size):
         pos_dim = 3
         self.time_encoder = encodings.PeriodEncoding(8, 20)
-        self.int = intr.TemporalInteraction(feat_size, edge_hidden,
-                                            latent_sizes, neighborhood_sizes,
-                                            neighbors, timesteps, combine_hidden,
-                                            target_size, pos_dim, self.time_encoder, 'space')
+        self.int = tpc.TemporalInteraction(feat_size, edge_hidden,
+                                           latent_sizes, neighborhood_sizes,
+                                           neighbors, timesteps, combine_hidden,
+                                           target_size, pos_dim, self.time_encoder, 'space')
 
     def encode(self, hist, mask, times, station_meta, station_pos,
                station_idxs, allowed, target_allowed, target_pos):
         hist_pts = self._get_by_idx(station_idxs, station_pos)
         hist_meta = self._get_by_idx(station_idxs, station_meta)
         in_ = torch.cat([hist, hist_meta], dim=2)
-        space_dist_fn = partial(dist.space, mask, station_idxs, times, allowed)
-        time_dist_fn = partial(dist.time, mask, station_idxs, allowed, self.time_encoder.encode)
-        target_dist_fn = partial(dist.target, mask, times, target_allowed)
+        space_dist_fn = partial(dists.space, mask, station_idxs, times, allowed)
+        time_dist_fn = partial(dists.time, mask, station_idxs, allowed, self.time_encoder.encode)
+        target_dist_fn = partial(dists.target, mask, times, target_allowed)
         tgt_feats = self.int(in_, None, hist_pts, times, target_pos,
                              space_dist_fn, time_dist_fn, target_dist_fn)
         return tgt_feats

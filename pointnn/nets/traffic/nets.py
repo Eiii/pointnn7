@@ -1,7 +1,6 @@
 from .. import pointnet
 from .. import encodings
 from .. import tpc
-from .. import interaction as intr
 from ..base import Network
 
 from . import dists
@@ -84,7 +83,7 @@ class TrafficTPC(_TrafficCommon):
 
 
 class TrafficInteraction(_TrafficCommon):
-    int_class = intr.TemporalInteraction
+    int_class = tpc.TemporalInteraction
 
     def __init__(self,
                  neighborhood_sizes=[2**4, 2**5, 2**5],
