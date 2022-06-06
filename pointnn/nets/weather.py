@@ -1,14 +1,12 @@
-from . import pointconv
 from . import pointnet
 from . import encodings
+from . import tpc
 from . import interaction as intr
 from .base import Network
-from . import tpc
 
 from functools import partial
 
 import torch
-import torch.nn as nn
 
 HIST_FEAT_SIZE = 12
 METADATA_SIZE = 19
@@ -257,121 +255,3 @@ class WeatherInteraction(_WeatherBase):
         tgt_feats = self.int(in_, None, hist_pts, times, target_pos,
                              space_dist_fn, time_dist_fn, target_dist_fn)
         return tgt_feats
-
-
-class WeatherSeFT(_WeatherBase):
-    def __init__(self,
-                 hidden=[256, 128, 128],
-                 combine_hidden=[256, 128, 128],
-                 neighborhood_sizes=[16, 16, 16],
-                 latent_sizes=[32, 64, 64],
-                 target_size=64,
-                 heads=4,
-                 decode_hidden=[64, 64, 64],
-                 neighbors=8,
-                 timesteps=12,
-                 self_attention=False,
-                 station_dropout=0):
-        super().__init__()
-        self.station_dropout = station_dropout
-        # Setup
-        in_size = HIST_FEAT_SIZE + METADATA_SIZE
-        num_preds = 4
-        self.make_encoders(in_size, hidden, combine_hidden, neighborhood_sizes,
-                           latent_sizes, neighbors, timesteps, self_attention, heads, target_size)
-        self.make_predictors(target_size, decode_hidden, num_preds)
-
-    def get_args(self, item):
-        return item['hist'], item['hist_mask'], \
-               item['times'], \
-               item['station_metadata'], item['station_pos'], \
-               item['station_idxs'], item['target_pos']
-
-    def make_encoders(self, feat_size, hidden, combine_hidden,
-                      neighborhood_sizes, latent_sizes, neighbors, timesteps,
-                      self_attention, heads, target_size):
-        self.time_encoder = encodings.PeriodEncoding(8, 20)
-        self.space = nn.ModuleList()
-        self.time = nn.ModuleList()
-        self.combine = nn.ModuleList()
-        in_size = feat_size
-        default_args = {'hidden': hidden, 'self_attention': self_attention,
-                        'heads': heads}
-        for ls, n_sz in zip(latent_sizes, neighborhood_sizes):
-            args = default_args.copy()
-            args.update({'neighbors': neighbors, 'c_in': in_size, 'c_out': n_sz,
-                         'dim': 3})
-            # Space conv
-            pc = pointconv.SeFT(**args)
-            self.space.append(pc)
-            # Station (time) conv
-            args = default_args.copy()
-            args.update({'neighbors': timesteps, 'c_in': in_size+n_sz,
-                         'c_out': n_sz, 'dim': self.time_encoder.out_dim})
-            pc = pointconv.SeFT(**args)
-            self.time.append(pc)
-            # Combine
-            set_args = {'in_size': in_size+2*n_sz, 'out_size': ls,
-                        'hidden_sizes': combine_hidden, 'reduction': 'none'}
-            pn = pointnet.SetTransform(**set_args) if ls is not None else None
-            self.combine.append(pn)
-            in_size = ls
-        args = {'hidden': hidden, 'neighbors': neighbors, 'c_in': ls,
-                'dim': 3, 'c_out': target_size, 'self_attention': self_attention,
-                'heads': heads}
-        self.target_xf = pointconv.SeFT(**args)
-
-
-"""
-class WeatherMink(_WeatherBase):
-    def __init__(self,
-                 latent_sizes=[32, 64, 64],
-                 kernel_size=21,
-                 target_size=64,
-                 decode_hidden=[64, 64, 64]):
-        super().__init__()
-        # Setup
-        in_size = HIST_FEAT_SIZE + METADATA_SIZE
-        num_preds = 4
-        self.kernel_size = kernel_size
-        self.make_encoders(in_size, latent_sizes, target_size)
-        self.make_predictors(target_size, decode_hidden, num_preds)
-
-
-    def get_args(self, item):
-        return item['hist_quant'], item['station_pos_quant'], item['target_pos_quant'], item['target_pos']
-
-
-    def forward(self, hist, station_pos, target_pos, ref_target_pos, force_dropout=None):
-        target_latent = self.encode(hist, station_pos, target_pos)
-        target_pred = self.pred(target_latent)
-        target_size = ref_target_pos.size()[:2]
-        pred_reshape = target_pred.view(*target_size, -1)
-        return pred_reshape
-
-
-    def encode(self, hist, station_pos, target_pos):
-        sparse_in = ME.SparseTensor(hist, station_pos)
-        for mink, norm, nonlin in zip(self.minks, self.norms, self.nonlins):
-            sparse_out = norm(nonlin(mink(sparse_in)))
-            sparse_in = sparse_out
-        target_out = self.target_xf(sparse_out, coordinates=target_pos)
-        return target_out.features
-
-
-    def make_encoders(self, feat_size, latent_sizes, target_size):
-        self.minks = nn.ModuleList()
-        self.norms = nn.ModuleList()
-        self.nonlins = nn.ModuleList()
-        in_size = feat_size
-        kernel = ME.KernelGenerator(self.kernel_size, region_type=ME.RegionType.HYPER_CUBE, dimension=3)
-        for ls in latent_sizes:
-            mink = ME.MinkowskiConvolution(in_channels=in_size, out_channels=ls,
-                                           dimension=3, kernel_generator=kernel)
-            self.minks.append(mink)
-            self.norms.append(ME.MinkowskiBatchNorm(ls))
-            self.nonlins.append(ME.MinkowskiReLU())
-            in_size = ls
-        self.target_xf = ME.MinkowskiConvolution(in_channels=ls, out_channels=target_size,
-                                                 dimension=3, kernel_generator=kernel)
-"""
