@@ -3,7 +3,6 @@ import argparse
 
 import numpy as np
 
-from . import common
 from ...data.weather import WeatherDataset
 
 import matplotlib
@@ -92,8 +91,14 @@ def plot_time(ax, pts, ids, num_groups=4):
     ax.grid(True)
 
 
+def config_mpl():
+    plt.rc('font', size=24)
+    plt.rc('font', family='serif')
+    plt.rc('axes', labelsize=28)
+
+
 def main(path):
-    common.config_mpl()
+    config_mpl()
     ds = WeatherDataset(path, HACK_SNIP=2)
     names, pts = get_stations(ds)
     groups = sample_space_groups(pts, num_groups=3)
