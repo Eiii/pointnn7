@@ -3,7 +3,6 @@ from ...nets.traffic.baseline import Nearest
 from .. import common
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.colors as colors
 
 from pathlib import Path
 import argparse
@@ -11,7 +10,7 @@ import torch
 
 
 def to_cuda(d):
-    return {k:v.cuda() if v is not None else None for k,v in d.items()}
+    return {k: v.cuda() if v is not None else None for k, v in d.items()}
 
 
 def make_parser():
@@ -37,7 +36,6 @@ def plot_traffic(ax, ds, sensor, norm_info):
     for entry in ds.entries:
         ref = entry.target_rows[0]
         first_x = first_x or ref
-        time = ds.raw_times[ref]
         col = ds.raw_df.loc[ref]
         if type(sensor) == int:
             sensor = str(sensor)

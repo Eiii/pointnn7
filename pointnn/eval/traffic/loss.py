@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from pathlib import Path
 
 from ...problem.traffic import TrafficMETR, element_loss, collate
 from ...nets.traffic.baseline import Random, Nearest, Mean
@@ -66,6 +65,7 @@ def eval_model(ds, net, bs):
     losses, mses = pred_safe(net, ds, bs)
     out = {'loss': losses, 'mse': mses}
     return out
+
 
 def make_net(path):
     net = common.make_net(common.load_result(path))
