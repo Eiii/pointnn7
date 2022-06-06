@@ -3,28 +3,9 @@ from ...problem.weather import flat_loss, scaled_loss
 from .. import common
 from .baselines import SelfEnsemble
 from torch.utils.data import DataLoader
-import math
 import argparse
 import torch
 import pickle
-
-
-def seq_to_device(d, device):
-    if isinstance(d, dict):
-        return {k: v.to(device) for k, v in d.items()}
-    elif isinstance(d, list):
-        return [v.to(device) for v in d]
-
-
-def pred_safe(model, ds, bs, device):
-    while bs != 1:
-        print(f'batch size={bs}')
-        try:
-            return pred(model, ds, bs, device)
-        except RuntimeError as e:
-            print(e)
-            bs = bs // 2
-    raise RuntimeError()
 
 
 def pred(model, ds, bs, device):
@@ -54,14 +35,6 @@ def run_net(net, ds, bs, drop):
         return pred_safe(net, ds, bs, device='cuda')
 
 
-def show_results(losses):
-    mean_preds = losses.mean(dim=0)
-    print(mean_preds.tolist())
-    mean = mean_preds.mean()
-    print(mean.tolist())
-    return mean
-
-
 def batch(data_path, net_paths, bs, drop, out_path):
     ds = WeatherDataset(data_path, load_train=False)
     ds = ds.test_dataset
@@ -75,6 +48,24 @@ def batch(data_path, net_paths, bs, drop, out_path):
             pickle.dump(loss_dict, fd)
 
 
+def seq_to_device(d, device):
+    if isinstance(d, dict):
+        return {k: v.to(device) for k, v in d.items()}
+    elif isinstance(d, list):
+        return [v.to(device) for v in d]
+
+
+def pred_safe(model, ds, bs, device):
+    while bs != 1:
+        print(f'batch size={bs}')
+        try:
+            return pred(model, ds, bs, device)
+        except RuntimeError as e:
+            print(e)
+            bs = bs // 2
+    raise RuntimeError()
+
+
 def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', default='./data/weather')
@@ -85,6 +76,6 @@ def make_parser():
     return parser
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     args = make_parser().parse_args()
     batch(args.data, args.nets, args.bs, args.drop, args.out)

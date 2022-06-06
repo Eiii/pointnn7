@@ -21,8 +21,9 @@ def calc_stats(losses):
     mean = t[~fails].mean().item()
     return {'quants': quants, 'mean': mean}
 
+
 def table(stat_dict):
-    all_nets = [d.keys() for _,d in stat_dict.items()]
+    all_nets = [d.keys() for _, d in stat_dict.items()]
     all_nets = set(itertools.chain(*all_nets))
 
     all_files = set(stat_dict.keys())
@@ -64,7 +65,7 @@ def main(files):
             for net_path, result in data.items():
                 net_type = get_net_type(net_path)
                 all_losses[net_type].append(result['loss'])
-        all_stats = {k:calc_stats(v) for k,v in all_losses.items()}
+        all_stats = {k: calc_stats(v) for k, v in all_losses.items()}
         all_files[f] = all_stats
     table(all_files)
 
@@ -73,6 +74,7 @@ def make_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('files', nargs='+')
     return parser
+
 
 if __name__ == '__main__':
     args = make_parser().parse_args()
