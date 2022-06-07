@@ -28,16 +28,16 @@ Install them via `pip install -r requirements.txt`
 
 ## Python Module Layout
 
-###### `pointnn/nets` 
+##### `pointnn/nets` 
 Contains the implementations of each graph network primitive we evaluate. 
 The folders `pointnn/nets/starcraft`, etc contain the network implementations applying these primitives to each problem domain.
 
-###### `pointnn/data` 
+##### `pointnn/data` 
 Contains code to load + process the dataset associated with each problem domain.
 
-###### `pointnn/problem`
+##### `pointnn/problem`
 Problem domain definitions.
 
-###### `pointnn/eval`
+##### `pointnn/eval`
 Code to evaluate trained models' performance and generate figures for the paper.
 
