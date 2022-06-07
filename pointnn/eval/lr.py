@@ -21,7 +21,7 @@ def get_lrs(tl):
     return [t['lr'] for t in tl]
 
 
-def plot_lr_curves(measures, out_path, skip_first, normalize):
+def plot_lr_curves(measures, out_path, normalize):
     thresh_data = {}
     size = (8, 5)
     fig, ax = plt.subplots(figsize=size, dpi=200)
@@ -48,9 +48,6 @@ def plot_lr_curves(measures, out_path, skip_first, normalize):
         xs = xs[0]
         print(f'Steps: {len(xs)}')
         ys = np.mean(ys, axis=0)
-        if skip_first:
-            xs = xs[1:]
-            ys = ys[1:]
         if normalize:
             plot_ys = ((ys / ys[0]) - 1)
             max_loss = 1
@@ -111,13 +108,13 @@ def score_min_thresh(thresh_idx, max_thresh_idx, goal):
     return score
 
 
-def make_plots(folder, out_path, lr_out, filter, skip_first, normalize):
+def make_plots(folder, out_path, lr_out, filter, normalize):
     measures = [r['measure'] for r in common.load_any(folder)]
     measures = [m for m in measures if not m.name.startswith('Pre')]
     if filter:
         filters = filter.split(',')
         measures = [m for m in measures if m.name in filters]
-    thresh_data = plot_lr_curves(measures, out_path, skip_first, normalize)
+    thresh_data = plot_lr_curves(measures, out_path, normalize)
     with open(lr_out, 'w') as fd:
         json.dump(thresh_data, fd)
     plt.tight_layout()
@@ -161,7 +158,6 @@ def make_parser():
     parser.add_argument('--output', default='out.png')
     parser.add_argument('--lroutput', default='lrs.json')
     parser.add_argument('--filter', default=None)
-    parser.add_argument('--skip-first', action='store_true')
     parser.add_argument('--normalize', action='store_true')
     return parser
 
@@ -180,5 +176,5 @@ if __name__ == '__main__':
         set_lrs(args.lrs, args.experiments, args.dryrun)
     else:
         args = make_parser().parse_args()
-        make_plots(args.folder, args.output, args.lroutput, args.filter, args.skip_first, args.normalize)
+        make_plots(args.folder, args.output, args.lroutput, args.filter, args.normalize)
 
