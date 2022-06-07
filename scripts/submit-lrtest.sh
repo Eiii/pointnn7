@@ -10,8 +10,7 @@ for c in $NUMS; do
     for s in $SIZES ; do
       for n in $NETS; do
         NAME=${d}-${n}-${s}-lrtest
-        echo $NAME $c
-        ./batch/submit.sh $NAME $c
+        scripts/run-experiment.sh $NAME $c
       done
     done
   done

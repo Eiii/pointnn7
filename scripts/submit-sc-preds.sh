@@ -9,8 +9,7 @@ for c in $NUMS; do
   for n in $NETS; do
     for p in $POST ; do
       NAME=sc-${n}-med-${p}
-      echo $NAME $c
-      ./batch/submit.sh $NAME $c
+      scripts/run-experiment.sh $NAME $c
     done
   done
 done

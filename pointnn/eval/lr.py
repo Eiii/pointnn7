@@ -28,7 +28,6 @@ def plot_lr_curves(measures, out_path, normalize):
     ax.set_xlabel('Learning Rate')
     ax.set_ylabel('Loss Change')
     ax.set_xscale('log')
-    #ax.set_yscale('log')
     all_names = list({m.name for m in measures if m.name is not None})
     print(f'Plotting {all_names}...')
     for name in all_names:
@@ -51,7 +50,7 @@ def plot_lr_curves(measures, out_path, normalize):
         if normalize:
             plot_ys = ((ys / ys[0]) - 1)
             max_loss = 1
-            plot_ys[plot_ys>max_loss] = max_loss
+            plot_ys[plot_ys > max_loss] = max_loss
             plot_ys *= 100
         else:
             plot_ys = ys
@@ -78,8 +77,8 @@ def calc_thresh(xs, ys):
     min_thresh = baseline_loss + (min_loss - baseline_loss)
     max_thresh = baseline_loss + (max_loss - baseline_loss)*thresh
 
-    over_max = ys>max_thresh
-    under_min = ys<min_thresh
+    over_max = ys > max_thresh
+    under_min = ys < min_thresh
 
     idx_scores = [(score_max_thresh(i, over_max), i) for i in range(seq_len)]
     _, max_thresh_idx = max(idx_scores)
@@ -177,4 +176,3 @@ if __name__ == '__main__':
     else:
         args = make_parser().parse_args()
         make_plots(args.folder, args.output, args.lroutput, args.filter, args.normalize)
-
